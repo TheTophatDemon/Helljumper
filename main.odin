@@ -29,16 +29,18 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 	assets.load()
 
-	za_warudo.chunks[1].pos = rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
+	za_warudo.chunks[1].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
 	za_warudo.ents = make([dynamic]Ent, 0, 100)
 	defer delete(za_warudo.ents)
 	load_next_chunk(&za_warudo, 0)
+	load_next_chunk(&za_warudo, 1)
 
 	camera := rl.Camera2D{
 		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
 		zoom = 1.0,
 	}
 
+	// Spawn player
 	append(&za_warudo.ents, Ent{
 		pos = rl.Vector3{8.0, 3.5, 3.0},
 		tex = assets.Gfx[.Player],
@@ -56,11 +58,25 @@ main :: proc() {
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 
+		player_z_before_update := player_ent.pos.z
+
 		for &ent in za_warudo.ents {
 			if ent.update_func != nil do ent.update_func(&ent, &za_warudo, delta_time)
 		}
 
 		camera.target.x, camera.target.y = world_to_screen_coords(0.0, 0.0, player_ent.pos.z)
+		for c in 0..<CHUNK_COUNT {
+			chunk := &za_warudo.chunks[c]
+			midpoint := chunk.pos.z + CHUNK_LENGTH / 2
+			if player_ent.pos.z > midpoint && player_z_before_update <= midpoint {
+				// Time to generate the next chunk of the level
+				next_chunk_idx := (c + 1) % CHUNK_COUNT
+				next_chunk := &za_warudo.chunks[next_chunk_idx]
+				next_chunk.pos = chunk.pos + rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
+				load_next_chunk(&za_warudo, next_chunk_idx)
+				break
+			}
+		}
 
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.Color{0, 64, 200, 255})
@@ -139,6 +155,8 @@ main :: proc() {
 		}
 		
 		rl.EndMode2D()
+
+		rl.DrawFPS(4, 4)
 		rl.EndDrawing()
 
 		// Clear temporary allocations
@@ -152,7 +170,12 @@ draw_tile :: proc(chunk: ^Chunk, x, y, z: int) {
 	src := TileRects[tile]
 	dest := rl.Rectangle{0, 0, src.width, src.height}
 	dest.x, dest.y = world_to_screen_coords(f32(x) + chunk.pos.x, f32(y) + chunk.pos.y, f32(z) + chunk.pos.z)
-	shade := 128 + u8(min(127, y * 16))
+	gradient := 128
+	#partial switch tile {
+		case .Solid: gradient = 16
+		case .Cloud: gradient = 32
+	}
+	shade := 128 + u8(min(127, y * gradient))
 	rl.DrawTexturePro(assets.Gfx[.Tiles], src, dest, rl.Vector2{0.0, 3.0 * src.height / 4.0}, 0.0, rl.Color{shade, shade, shade, 255})
 }
 

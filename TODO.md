@@ -1,0 +1,10 @@
+- Fix tile flickering
+- Generate better level structure
+- Run animation
+- Death
+- Running score
+- Hell transition
+- Obstacles
+- Sound effects
+- Music
+- Menu
