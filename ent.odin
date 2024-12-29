@@ -14,6 +14,11 @@ Touching :: enum u8 {
     Back,
 }
 
+EntVariant :: enum {
+    Player,
+    Shallot,
+}
+
 Ent :: struct {
 	pos, vel: rl.Vector3,
     gravity: f32,
@@ -24,6 +29,8 @@ Ent :: struct {
     update_func: proc(ent: ^Ent, world: ^World, delta_time: f32),
     touch_flags: bit_set[Touching; u8],
     max_speed: f32,
+    needs_outline: bool,
+    variant: EntVariant,
 }
 
 update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
@@ -48,6 +55,8 @@ update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
         } else if ent.vel.x > 0 {
             ent.pos.x = move_and_collide_ent(ent, world, ent.pos.x, next_pos.x, .Right)
         }
+    } else {
+        ent.pos = next_pos
     }
     if .Bottom in ent.touch_flags {
         ent.vel.y = 0.0
@@ -177,7 +186,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
 
 draw_ent :: proc(ent: ^Ent) {
     if !rl.IsTextureValid(ent.tex) do return
-    src := assets.anim_player_current_rect(&ent.anim_player)
+    src := assets.anim_player_current_rect(&ent.anim_player) if ent.anim_player.anims != nil else rl.Rectangle{width = f32(ent.tex.width), height = f32(ent.tex.height)}
     dest := rl.Rectangle{width = src.width, height = src.height}
     dest.x, dest.y = world_to_screen_coords(ent.pos.x, ent.pos.y, ent.pos.z)
     rl.DrawTexturePro(ent.tex, src, dest, ent.sprite_origin, 0.0, rl.WHITE)
@@ -192,4 +201,11 @@ draw_ent_outline :: proc(ent: ^Ent) {
     ent.anim_player.layer_idx = 1
     
     draw_ent(ent)
+}
+
+ent_bbox :: proc(ent: ^Ent) -> rl.BoundingBox {
+    return rl.BoundingBox{
+        min = rl.Vector3{ent.pos.x - ent.extents.x, ent.pos.y, ent.pos.z - ent.extents.z},
+        max = rl.Vector3{ent.pos.x + ent.extents.x, ent.pos.y + ent.extents.y * 2.0, ent.pos.z + ent.extents.z},
+    }
 }

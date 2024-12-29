@@ -33,6 +33,7 @@ main :: proc() {
 	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Helljumper")
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
+	rl.InitAudioDevice()
 	assets.load()
 
 	game_screen := rl.LoadRenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -132,7 +133,7 @@ main :: proc() {
 		}
 
 		for &ent in za_warudo.ents {
-			draw_ent_outline(&ent)
+			if ent.needs_outline do draw_ent_outline(&ent)
 		}
 		
 		rl.EndMode2D()

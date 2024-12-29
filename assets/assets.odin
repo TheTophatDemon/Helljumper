@@ -10,9 +10,18 @@ import rl "vendor:raylib"
 GfxId :: enum {
     Tiles,
     Player,
+    Shallot,
+}
+
+SoundId :: enum {
+    Jump,
+    Ascend,
+    Descend,
+    Lose,
 }
 
 Gfx: [GfxId]rl.Texture2D
+Sounds: [SoundId]rl.Sound
 Anims: [GfxId]AnimSet
 HeavenChunks, HellChunks: [dynamic]Te3Map
 HudFont: rl.Font
@@ -24,9 +33,23 @@ load :: proc() {
         return rl.LoadTextureFromImage(img)
     }
 
-    Gfx = [GfxId]rl.Texture2D{
+    Gfx = [GfxId]rl.Texture2D {
         .Tiles = tex_from_bytes(#load("gfx/tiles.png")),
         .Player = tex_from_bytes(#load("gfx/player.png")),
+        .Shallot = tex_from_bytes(#load("gfx/shallot.png")),
+    }
+
+    sound_from_bytes :: proc(bytes: []u8) -> rl.Sound {
+        wave := rl.LoadWaveFromMemory(".wav", &bytes[0], cast(i32)len(bytes))
+        defer rl.UnloadWave(wave)
+        return rl.LoadSoundFromWave(wave)
+    }
+
+    Sounds = [SoundId]rl.Sound {
+        .Jump = sound_from_bytes(#load("sounds/jump.wav")),
+        .Ascend = sound_from_bytes(#load("sounds/ascend.wav")),
+        .Descend = sound_from_bytes(#load("sounds/descend.wav")),
+        .Lose = sound_from_bytes(#load("sounds/lose.wav")),
     }
 
     anims_from_bytes :: proc(bytes: []u8, call_expr := #caller_expression) -> AnimSet {
@@ -66,12 +89,6 @@ load :: proc() {
     }
 
     font_bytes := #load("gfx/Awe Mono Gold.ttf")
-    // codepoints := [?]rune{
-    //     'T', 'r', 'a', 'v', 'e', 'l', 'd', ':',
-    //     'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш',
-    //     'щ','ъ','ы','ь','э','ю','я','А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Ц','Ч',
-    //     'Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
-    // }
     codepoints := make([dynamic]rune, 0, 200)
     defer delete(codepoints)
     for ru in ' '..='~' {

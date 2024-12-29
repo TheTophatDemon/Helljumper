@@ -11,11 +11,17 @@ Te3Map :: struct {
         width, height, length: int,
         shapes: []string,
         textures: []string,
-    }
+    },
+    ents: []Te3Ent,
 }
 
 Te3Tile :: struct {
     model_id, angle, tex_id, pitch: i32
+}
+
+Te3Ent :: struct {
+    position: [3]f32,
+    properties: map[string]string
 }
 
 load_tile_grid_from_te3_map :: proc(file: ^Te3Map, allocator := context.allocator, call_loc := #caller_location) -> [dynamic]Te3Tile {

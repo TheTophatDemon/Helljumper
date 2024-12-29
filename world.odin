@@ -5,6 +5,7 @@ import "core:math/rand"
 import "core:path/filepath"
 import "core:reflect"
 import "core:fmt"
+import "core:slice"
 
 import "assets"
 
@@ -14,6 +15,7 @@ CHUNK_LENGTH :: 64
 CHUNK_COUNT :: 3 // Number of chunks loaded at any one time.
 TILE_SPACING_HORZ :: 16
 TILE_SPACING_VERT :: 8
+KILL_PLANE_OFFSET :: 20.0
 
 TileType :: enum u8 {
 	Empty,
@@ -45,7 +47,7 @@ World :: struct {
     heaven: bool,
     camera: rl.Camera2D,
     distance_traveled: f32,
-    game_lost: bool,
+    game_lost, heaven_transition: bool,
 }
 
 init_world :: proc(world: ^World, heaven: bool) {
@@ -80,6 +82,8 @@ init_world :: proc(world: ^World, heaven: bool) {
 		extents = rl.Vector3{0.25, 1.0, 0.25},
 		update_func = update_player,
 		gravity = -20.0,
+        needs_outline = true,
+        variant = .Player,
 	})
 }
 
@@ -91,15 +95,20 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     player_z_before_update: f32
     player_ent: ^Ent
     for &ent in world.ents {
-        if ent.update_func == update_player {
+        if ent.variant == .Player {
             player_z_before_update = ent.pos.z
             player_ent = &ent
         }
         if ent.update_func != nil do ent.update_func(&ent, world, delta_time)
     }
+    #reverse for &ent, e in world.ents {
+        if ent.variant != .Player && ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET {
+            unordered_remove(&world.ents, e)
+        }
+    }
 
     distance_gained: f32
-    if player_ent == nil || player_ent.pos.z > 6.0 {
+    if (player_ent == nil || player_ent.pos.z > 6.0) && !world.heaven_transition {
         distance_gained = SCROLL_SPEED * delta_time
         world.distance_traveled += distance_gained
     }
@@ -125,14 +134,20 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
         if player_ent.pos.y < -16.0 {
             if world.heaven {
                 init_world(world, false)
+                rl.PlaySound(assets.Sounds[.Descend])
             } else {
-                world.game_lost = true
+                world_lose_game(world)
             }
         }
 
+        // Player has risen
+        if world.heaven_transition && player_ent.pos.y > 16.0 {
+            init_world(world, true)
+        }
+
         // Player has gone too far behind the camera
-        if player_ent.pos.z < world.distance_traveled - 18.0 {
-            world.game_lost = true
+        if player_ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET {
+            world_lose_game(world)
         }
 
         if !world.game_lost {
@@ -145,6 +160,12 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     }
 
     return
+}
+
+world_lose_game :: proc(world: ^World) {
+    if world.game_lost do return
+    world.game_lost = true
+    rl.PlaySound(assets.Sounds[.Lose])
 }
 
 world_to_screen_coords :: proc(x, y, z: f32) -> (screen_x, screen_y: f32) {
@@ -181,6 +202,23 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
             if !ok {
                 fmt.printfln("Didn't find matching tile type for texture '%v'.", tex_name)
             }
+        }
+    }
+
+    for te3_ent in te3_map.ents {
+        name, has_name := te3_ent.properties["name"]
+        if !has_name do continue
+        switch name {
+        case "shallot":
+            // Spawn shallot
+            append(&world.ents, Ent{
+                pos = world.chunks[chunk_idx].pos + (te3_ent.position / 2.0),
+                extents = rl.Vector3{0.5, 64.0, 0.5},
+                tex = assets.Gfx[.Shallot],
+                sprite_origin = rl.Vector2{ 8.0, 360.0 },
+                variant = .Shallot,
+                update_func = update_ent,
+            })
         }
     }
 }
