@@ -12,6 +12,7 @@ GfxId :: enum {
 
 Gfx: [GfxId]rl.Texture2D
 Anims: [GfxId]AnimSet
+Chunks: [dynamic]Te3Map
 
 load :: proc() {
     tex_from_bytes :: proc(bytes: []u8) -> rl.Texture2D {
@@ -35,6 +36,20 @@ load :: proc() {
     }
 
     Anims[.Player] = anims_from_bytes(#load("gfx/player.json"))
+
+    chunk_files := #load_directory("chunks")
+
+    Chunks = make([dynamic]Te3Map, 0, len(chunk_files))
+    for file in chunk_files {
+        te3_map: Te3Map
+        err := json.unmarshal(file.data, &te3_map)
+        if err != nil {
+            fmt.printfln(`Error! Could not load TE3 map at "%v"`, file.name)
+        } else {
+            append(&Chunks, te3_map)
+            fmt.printfln(`Loaded chunk file at "%v".`, file.name)
+        }
+    }
 
     // This memory is used until the end of the program, so nothing needs to be deallocated.
 }

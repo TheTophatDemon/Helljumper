@@ -3,3 +3,5 @@
 *.exe
 *.pdb
 ols.json
+*.dll
+imgui.ini

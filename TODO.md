@@ -1,10 +1,11 @@
-- Fix tile flickering
-- Generate better level structure
-- Run animation
+- Make more chunks
+- Enlarge chunk queue to prevent pop-in
 - Death
 - Running score
+- Fix sprite order
 - Hell transition
 - Obstacles
 - Sound effects
+- Run animation
 - Music
 - Menu

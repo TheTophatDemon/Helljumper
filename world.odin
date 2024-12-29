@@ -2,9 +2,14 @@ package main
 
 import rl "vendor:raylib"
 import "core:math/rand"
+import "core:path/filepath"
+import "core:reflect"
+import "core:fmt"
+
+import "assets"
 
 CHUNK_WIDTH :: 16
-CHUNK_HEIGHT :: 32
+CHUNK_HEIGHT :: 16
 CHUNK_LENGTH :: 64
 CHUNK_COUNT :: 2 // Number of chunks loaded at any one time.
 TILE_SPACING_HORZ :: 16
@@ -43,21 +48,34 @@ world_to_screen_coords :: proc(x, y, z: f32) -> (screen_x, screen_y: f32) {
 	return
 }
 
-load_next_chunk :: proc(world: ^World, chunk_idx: int) {
+load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
     assert(chunk_idx >= 0 && chunk_idx < CHUNK_COUNT)
 
-    for y in 0..<CHUNK_HEIGHT {
-		for z in 0..<CHUNK_LENGTH {
-			for x in 0..<CHUNK_WIDTH {
-				if y < 3 || (y == 3 && z > 5 && rand.float32() < 0.2) || (y == 3 && z == 0 && x % 2 == 0) {
-                    t: TileType = .Solid if chunk_idx == 0 else .Cloud
-					world.chunks[chunk_idx].tiles[y][z][x] = t
-				} else {
-                    world.chunks[chunk_idx].tiles[y][z][x] = .Empty
-                }
-			}
-		}
-	}
+    te3_map: assets.Te3Map
+    if asset_idx >= 0 {
+        te3_map = assets.Chunks[asset_idx]
+    } else {
+        te3_map = rand.choice(assets.Chunks[:])
+    }
+
+    te3_tiles := assets.load_tile_grid_from_te3_map(&te3_map)
+    defer delete(te3_tiles)
+
+    for tile, t in te3_tiles {
+        x := t % te3_map.tiles.width
+        y := t / (te3_map.tiles.width * te3_map.tiles.length)
+        z := (t / te3_map.tiles.width) % te3_map.tiles.length
+        if tile.model_id < 0 || tile.tex_id < 0 {
+            world.chunks[chunk_idx].tiles[y][z][x] = .Empty
+        } else {
+            tex_name := filepath.short_stem(te3_map.tiles.textures[tile.tex_id])
+            ok: bool
+            world.chunks[chunk_idx].tiles[y][z][x], ok = reflect.enum_from_name(TileType, tex_name)
+            if !ok {
+                fmt.printfln("Didn't find matching tile type for texture '%v'.", tex_name)
+            }
+        }
+    }
 }
 
 chunk_is_visible :: proc(camera: rl.Camera2D, chunk: ^Chunk) -> bool {

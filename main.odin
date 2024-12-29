@@ -32,8 +32,8 @@ main :: proc() {
 	za_warudo.chunks[1].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
 	za_warudo.ents = make([dynamic]Ent, 0, 100)
 	defer delete(za_warudo.ents)
-	load_next_chunk(&za_warudo, 0)
-	load_next_chunk(&za_warudo, 1)
+	load_next_chunk(&za_warudo, 0, 0)
+	load_next_chunk(&za_warudo, 1, 1)
 
 	camera := rl.Camera2D{
 		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
@@ -74,6 +74,7 @@ main :: proc() {
 				next_chunk := &za_warudo.chunks[next_chunk_idx]
 				next_chunk.pos = chunk.pos + rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
 				load_next_chunk(&za_warudo, next_chunk_idx)
+				fmt.println("New chunk loaded.")
 				break
 			}
 		}
@@ -108,6 +109,7 @@ main :: proc() {
 		for &ent in za_warudo.ents {
 			append(&drawables, &ent)
 
+			drop_shadow_loop:
 			for c in 0..<CHUNK_COUNT {
 				chunk := &za_warudo.chunks[c]
 				// Make drop shadow
@@ -123,7 +125,7 @@ main :: proc() {
 									scale = min(1.0, ent.pos.y - chunk.pos.y - f32(y) - 1.0),
 								})
 							}
-							break
+							break drop_shadow_loop
 						}
 					}
 				}
@@ -143,7 +145,9 @@ main :: proc() {
 				case ChunkTile: b_pos = rl.Vector3{f32(x.coords[0]), f32(x.coords[1]), f32(x.coords[2])} + x.chunk.pos
 				case DropShadow: b_pos = x.pos
 			}
-			return b_pos.y + b_pos.x - b_pos.z > a_pos.y + a_pos.x - a_pos.z
+
+			// Y is multiplied by 100 in order to prevent flickering
+			return (b_pos.y * 100) + b_pos.x - b_pos.z > (a_pos.y * 100) + a_pos.x - a_pos.z
 		})
 
 		for drawable in drawables {
@@ -173,7 +177,7 @@ draw_tile :: proc(chunk: ^Chunk, x, y, z: int) {
 	gradient := 128
 	#partial switch tile {
 		case .Solid: gradient = 16
-		case .Cloud: gradient = 32
+		case .Cloud: gradient = 64
 	}
 	shade := 128 + u8(min(127, y * gradient))
 	rl.DrawTexturePro(assets.Gfx[.Tiles], src, dest, rl.Vector2{0.0, 3.0 * src.height / 4.0}, 0.0, rl.Color{shade, shade, shade, 255})
