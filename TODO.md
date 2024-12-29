@@ -1,7 +1,4 @@
-- Fix sprite order
 - Make more chunks
-- Death
-- Running score
 - Obstacles
 - Sound effects
 - Run animation

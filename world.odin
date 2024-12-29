@@ -44,7 +44,8 @@ World :: struct {
     ents: [dynamic]Ent,
     heaven: bool,
     camera: rl.Camera2D,
-
+    distance_traveled: f32,
+    game_lost: bool,
 }
 
 init_world :: proc(world: ^World, heaven: bool) {
@@ -68,8 +69,9 @@ init_world :: proc(world: ^World, heaven: bool) {
 	}
 
 	// Spawn player
+    player_pos := rl.Vector3{8.0, 16.0, 3.0}
 	append(&world.ents, Ent{
-		pos = rl.Vector3{8.0, 16.0, 3.0},
+		pos = player_pos,
 		tex = assets.Gfx[.Player],
 		sprite_origin = rl.Vector2{16.0, 40.0},
 		anim_player = assets.AnimPlayer{
@@ -81,9 +83,73 @@ init_world :: proc(world: ^World, heaven: bool) {
 	})
 }
 
+update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: f32) {
+    SCROLL_SPEED :: 14.0
+    
+    new_score = score
+
+    player_z_before_update: f32
+    player_ent: ^Ent
+    for &ent in world.ents {
+        if ent.update_func == update_player {
+            player_z_before_update = ent.pos.z
+            player_ent = &ent
+        }
+        if ent.update_func != nil do ent.update_func(&ent, world, delta_time)
+    }
+
+    distance_gained: f32
+    if player_ent == nil || player_ent.pos.z > 6.0 {
+        distance_gained = SCROLL_SPEED * delta_time
+        world.distance_traveled += distance_gained
+    }
+    
+    world.camera.target.x, world.camera.target.y = world_to_screen_coords(0.0, 0.0, world.distance_traveled)
+   
+    if player_ent != nil {
+        // Spawn new chunks after player reaches mid point of current chunk
+        for c in 0..<CHUNK_COUNT {
+            chunk := &world.chunks[c]
+            midpoint := chunk.pos.z + CHUNK_LENGTH / 2
+            if player_ent.pos.z > midpoint && player_z_before_update <= midpoint {
+                next_chunk_idx := (c + 2) % CHUNK_COUNT
+                next_chunk := &world.chunks[next_chunk_idx]
+                next_chunk.pos = chunk.pos + rl.Vector3{0.0, 0.0, CHUNK_LENGTH * 2}
+                load_next_chunk(world, next_chunk_idx)
+                fmt.println("New chunk loaded.")
+                break
+            }
+        }
+    
+        // Player has fallen
+        if player_ent.pos.y < -16.0 {
+            if world.heaven {
+                init_world(world, false)
+            } else {
+                world.game_lost = true
+            }
+        }
+
+        // Player has gone too far behind the camera
+        if player_ent.pos.z < world.distance_traveled - 18.0 {
+            world.game_lost = true
+        }
+
+        if !world.game_lost {
+            if world.heaven {
+                new_score += distance_gained
+            } else {
+                new_score -= distance_gained
+            }
+        }
+    }
+
+    return
+}
+
 world_to_screen_coords :: proc(x, y, z: f32) -> (screen_x, screen_y: f32) {
-	screen_x = (x + z) * TILE_SPACING_HORZ 
-	screen_y = ((x - z) * TILE_SPACING_VERT) - (y * TILE_SPACING_HORZ)
+    screen_x = (x + z) * TILE_SPACING_HORZ
+    screen_y = ((x - z) * TILE_SPACING_VERT) - (y * TILE_SPACING_HORZ)
 	return
 }
 
@@ -119,16 +185,20 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
     }
 }
 
-chunk_is_visible :: proc(camera: rl.Camera2D, chunk: ^Chunk) -> bool {
+chunk_is_visible :: proc(world: ^World, chunk: ^Chunk) -> bool {
     left, bottom := world_to_screen_coords(chunk.pos.x, chunk.pos.y, chunk.pos.z)
     right, top := world_to_screen_coords(chunk.pos.x + CHUNK_WIDTH, chunk.pos.y + CHUNK_HEIGHT, chunk.pos.z + CHUNK_LENGTH)
+    left -= 32
+    top -= 32
+    right += 32
+    bottom += 32
     return rl.GetCollisionRec(rl.Rectangle{
         left, top, right - left, bottom - top
     }, rl.Rectangle{
-        camera.target.x - camera.offset.x,
-        camera.target.y - camera.offset.y,
-        camera.offset.x * 4.0,
-        camera.offset.y * 2.0,
+        world.camera.target.x - (world.camera.offset.x / 2.0),
+        world.camera.target.y - (world.camera.offset.y / 2.0),
+        world.camera.offset.x * 2.0,
+        world.camera.offset.y,
     }) != {}
 }
 
@@ -143,4 +213,20 @@ containing_chunks :: proc(world: ^World, bbox: rl.BoundingBox) -> (containing_ch
         }
     }
     return
+}
+
+draw_tile :: proc(chunk: ^Chunk, x, y, z: int) {
+	tile := chunk.tiles[y][z][x]
+	if tile == .Empty do return
+	src := TileRects[tile]
+	dest := rl.Rectangle{0, 0, src.width, src.height}
+	dest.x, dest.y = world_to_screen_coords(f32(x) + chunk.pos.x, f32(y) + chunk.pos.y, f32(z) + chunk.pos.z)
+	shade: u8
+	switch tile {
+		case .Empty: shade = 0
+		case .Solid: shade = 128 + u8(min(127, y * 16))
+		case .Cloud, .Pillar: shade = 200 + u8(min(55, y * 16))
+	}
+	
+	rl.DrawTexturePro(assets.Gfx[.Tiles], src, dest, rl.Vector2{0.0, 3.0 * src.height / 4.0}, 0.0, rl.Color{shade, shade, shade, 255})
 }

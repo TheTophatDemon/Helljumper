@@ -7,9 +7,11 @@ PlayerProps :: struct {
 }
 
 update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
+    if world.game_lost do return
+
     STRAFE_SPEED :: 6.0
     JUMP_FORCE :: 12.0
-    REGULAR_SPEED :: 8.0
+    REGULAR_SPEED :: 12.0
     MAX_SPEED :: 16.0
     FWD_ACCEL :: 10.0
     FRICTION :: 20.0
@@ -34,6 +36,7 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     } else if rl.IsKeyDown(.LEFT) || rl.IsKeyDown(.A) {
         player.vel.x = -STRAFE_SPEED
     }
+    if !world.heaven do player.vel.x = -player.vel.x
 
     trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.GetGamepadButtonPressed() == .RIGHT_FACE_DOWN)
 
@@ -49,7 +52,11 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
         }
     } else {
         if player.vel.y > 0.0 {
-            player.anim_player.anim_idx = 1
+            if .Top in player.touch_flags {
+                player.vel.y = 0.0
+            } else {
+                player.anim_player.anim_idx = 1
+            }
         } else {
             player.anim_player.anim_idx = 2
         }

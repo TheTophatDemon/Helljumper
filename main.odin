@@ -4,11 +4,17 @@ import rl "vendor:raylib"
 import "core:fmt"
 import "core:slice"
 import "core:math/rand"
+import "core:math"
+import "core:strings"
+import "core:os"
+import "core:encoding/endian"
 
 import "assets"
 
 WINDOW_WIDTH :: 1280
 WINDOW_HEIGHT :: 720
+HIGH_SCORE_FILE_NAME :: "high_score"
+TIME_TO_RESTART :: 5.0 // Seconds
 
 DropShadow :: struct {
 	pos: rl.Vector3,
@@ -29,43 +35,36 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 	assets.load()
 
+	game_screen := rl.LoadRenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT)
+	defer rl.UnloadRenderTexture(game_screen)
+
 	init_world(&za_warudo, true)
+
+	score: f32
+	new_record: bool
+	high_score := load_high_score()
+	restart_timer: f32
 
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 
-		player_z_before_update: f32
-		player_ent: ^Ent
-		for &ent in za_warudo.ents {
-			if ent.update_func == update_player {
-				player_z_before_update = ent.pos.z
-				player_ent = &ent
+		score = update_world(&za_warudo, delta_time, score)
+		if za_warudo.game_lost {
+			if int(score) > int(high_score) {
+				high_score = score
+				new_record = true
+				save_high_score(high_score)
 			}
-			if ent.update_func != nil do ent.update_func(&ent, &za_warudo, delta_time)
-		}
-
-		za_warudo.camera.target.x, za_warudo.camera.target.y = world_to_screen_coords(0.0, 0.0, player_ent.pos.z + 6.0)
-
-		for c in 0..<CHUNK_COUNT {
-			chunk := &za_warudo.chunks[c]
-			midpoint := chunk.pos.z + CHUNK_LENGTH / 2
-			if player_ent.pos.z > midpoint && player_z_before_update <= midpoint {
-				// Time to generate the next chunk of the level
-				next_chunk_idx := (c + 2) % CHUNK_COUNT
-				next_chunk := &za_warudo.chunks[next_chunk_idx]
-				next_chunk.pos = chunk.pos + rl.Vector3{0.0, 0.0, CHUNK_LENGTH * 2}
-				load_next_chunk(&za_warudo, next_chunk_idx)
-				fmt.println("New chunk loaded.")
-				break
+			restart_timer += delta_time
+			if restart_timer > TIME_TO_RESTART || (restart_timer > 1.0 && rl.GetKeyPressed() != rl.KeyboardKey.KEY_NULL) {
+				restart_timer = 0.0
+				score = 0
+				init_world(&za_warudo, true)
 			}
-		}
-
-		defer if player_ent.pos.y < -16.0 {
-			// Player has fallen
-			init_world(&za_warudo, !za_warudo.heaven)
 		}
 
 		rl.BeginDrawing()
+		rl.BeginTextureMode(game_screen)
 		if za_warudo.heaven {
 			rl.ClearBackground(rl.Color{0, 64, 200, 255})
 		} else {
@@ -76,7 +75,7 @@ main :: proc() {
 		drawables := make([dynamic]Drawable, 0, CHUNK_COUNT * CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH + len(za_warudo.ents))
 		for c in 0..<CHUNK_COUNT {
 			chunk := &za_warudo.chunks[c]
-			if !chunk_is_visible(za_warudo.camera, chunk) do continue
+			if !chunk_is_visible(&za_warudo, chunk) do continue
 			for y in 0..<CHUNK_HEIGHT {
 				for z in 0..<CHUNK_LENGTH {
 					for x in 0..<CHUNK_WIDTH {
@@ -131,10 +130,38 @@ main :: proc() {
 				case DropShadow: draw_drop_shadow(variant)
 			}
 		}
+
+		for &ent in za_warudo.ents {
+			draw_ent_outline(&ent)
+		}
 		
 		rl.EndMode2D()
+		rl.EndTextureMode()
 
-		rl.DrawFPS(4, 4)
+		src := rl.Rectangle{
+			width = f32(game_screen.texture.width if za_warudo.heaven else -game_screen.texture.width),
+			height = f32(-game_screen.texture.height)
+		}
+		rl.DrawTexturePro(game_screen.texture, src, rl.Rectangle{0, 0, f32(game_screen.texture.width), f32(game_screen.texture.height)}, rl.Vector2{}, 0, rl.WHITE)
+
+		score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d", int(score), int(high_score))
+		c_score_text := strings.clone_to_cstring(score_text)
+		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.35, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
+		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.35, 4}, 32, 0.0, rl.GREEN)
+
+		if za_warudo.game_lost {
+			LOSE_MSG :: "THOЦ HAST PEЯISHEД"
+			shadow_pos := rl.Vector2{WINDOW_WIDTH / 4, 3 * WINDOW_HEIGHT / 8 }
+			t := f32(rl.GetTime()) * 100.0
+			rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos - rl.Vector2{2.0 + math.cos(t * 10.0), 1.0 - math.sin(t / 2.0)}, 72, 4.0, rl.BLACK)
+			rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos + rl.Vector2{2.0 + math.sin(t), 2.0 + math.cos(t)}, 72, 4.0, rl.RED)
+			if new_record && (int(t) % 100) > 25 { 
+				RECORD_MSG :: "ШITH A NEШ ЯECOЯД!"
+				rl.DrawTextEx(assets.HudFont, RECORD_MSG, shadow_pos + rl.Vector2{192.0, 82.0}, 32, 1.0, rl.YELLOW)
+			}
+		}
+
+		when ODIN_DEBUG do rl.DrawFPS(4, 4)
 		rl.EndDrawing()
 
 		// Clear temporary allocations
@@ -142,23 +169,51 @@ main :: proc() {
 	}
 }
 
-draw_tile :: proc(chunk: ^Chunk, x, y, z: int) {
-	tile := chunk.tiles[y][z][x]
-	if tile == .Empty do return
-	src := TileRects[tile]
-	dest := rl.Rectangle{0, 0, src.width, src.height}
-	dest.x, dest.y = world_to_screen_coords(f32(x) + chunk.pos.x, f32(y) + chunk.pos.y, f32(z) + chunk.pos.z)
-	shade: u8
-	switch tile {
-		case .Empty: shade = 0
-		case .Solid: shade = 128 + u8(min(127, y * 16))
-		case .Cloud, .Pillar: shade = 200 + u8(min(55, y * 16))
-	}
-	
-	rl.DrawTexturePro(assets.Gfx[.Tiles], src, dest, rl.Vector2{0.0, 3.0 * src.height / 4.0}, 0.0, rl.Color{shade, shade, shade, 255})
+draw_drop_shadow :: proc(drop_shadow: DropShadow) {
+	x, y := world_to_screen_coords(drop_shadow.pos.x, drop_shadow.pos.y, drop_shadow.pos.z)
+	rl.DrawEllipse(cast(i32)x, cast(i32)y, 8.0 * drop_shadow.scale, 4.0 * drop_shadow.scale, rl.Color{0, 0, 0, 128})
 }
 
-draw_drop_shadow :: proc(using drop_shadow: DropShadow) {
-	x, y := world_to_screen_coords(pos.x, pos.y, pos.z)
-	rl.DrawEllipse(cast(i32)x, cast(i32)y, 8.0 * scale, 4.0 * scale, rl.Color{0, 0, 0, 128})
+load_high_score :: proc() -> (high_score: f32) {
+	file, err := os.open(HIGH_SCORE_FILE_NAME)
+	if err != nil {
+		if general_err, is_general := err.(os.General_Error); !is_general || general_err != .Not_Exist {
+			fmt.printfln("Error reading high score from file: %v.", os.error_string(err))
+		}
+		return
+	}
+	defer os.close(file)
+
+	data, succ := os.read_entire_file(file)
+	if !succ {
+		fmt.printfln("Could not read high score file.")
+		return
+	}
+	defer delete(data)
+
+	high_score, succ = endian.get_f32(data, .Little)
+	if !succ {
+		fmt.printfln("The high score is not a float!?")
+		return
+	}
+
+	return
+}
+
+save_high_score :: proc(high_score: f32) {
+	file, err := os.open(HIGH_SCORE_FILE_NAME, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
+	if err != nil {
+		fmt.printfln("Error opening high score file for writing: %v.", os.error_string(err))
+		return
+	}
+	defer os.close(file)
+
+	bytes: [4]u8
+	endian.put_f32(bytes[:], .Little, high_score)
+
+	_, err = os.write(file, bytes[:])
+	if err != nil {
+		fmt.printfln("Error writing high score: %v.", os.error_string(err))
+		return
+	}
 }

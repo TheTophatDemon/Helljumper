@@ -47,5 +47,12 @@ drawable_less :: proc(a, b: Drawable) -> bool {
         case DropShadow: b_pos = x.pos
     }
 
+    if ent, is_ent := a.(^Ent); is_ent {
+        a_pos.y = clamp(b_pos.y, a_pos.y, a_pos.y + ent.extents.y * 2.0)
+    }
+    if ent, is_ent := b.(^Ent); is_ent {
+        b_pos.y = clamp(a_pos.y, b_pos.y, b_pos.y + ent.extents.y * 2.0)
+    }
+
     return b_pos.y + b_pos.x - b_pos.z > a_pos.y + a_pos.x - a_pos.z
 }

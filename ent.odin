@@ -36,7 +36,7 @@ update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
         if ent.vel.y < 0 {
             ent.pos.y = move_and_collide_ent(ent, world, ent.pos.y, next_pos.y, .Bottom)
         } else {
-            ent.pos.y = next_pos.y
+            ent.pos.y = move_and_collide_ent(ent, world, ent.pos.y, next_pos.y, .Top)
         }
         if ent.vel.z > 0 {
             ent.pos.z = move_and_collide_ent(ent, world, ent.pos.z, next_pos.z, .Front)
@@ -74,7 +74,10 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
             min = rl.Vector3{ bbox_pos.x - ent.extents.x + 0.01, to, bbox_pos.z - ent.extents.z + 0.01 },
             max = rl.Vector3{ bbox_pos.x + ent.extents.x - 0.02, from + ent.extents.y, bbox_pos.z + ent.extents.z - 0.02 },
         }
-        case .Top:
+        case .Top: movement_bbox = {
+            min = rl.Vector3{ bbox_pos.x - ent.extents.x + 0.01, from + ent.extents.y, bbox_pos.z - ent.extents.z + 0.01 },
+            max = rl.Vector3{ bbox_pos.x + ent.extents.x - 0.02, to + ent.extents.y * 2.0, bbox_pos.z + ent.extents.z - 0.02 },
+        }
         case .Back:
     }
     for &chunk in containing_chunks(world, movement_bbox) {
@@ -117,6 +120,22 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         }
                     }
                 }
+            case .Top:
+                for y in tile_min_y..=tile_max_y {
+                    if y < 0 || y >= CHUNK_HEIGHT do continue
+                    for x in tile_min_x..=tile_max_x {
+                        if x < 0 || x >= CHUNK_WIDTH do continue
+                        for z in tile_min_z..=tile_max_z {
+                            if z < 0 || z >= CHUNK_LENGTH do continue
+                            if tile := chunk.tiles[y][z][x]; tile != .Empty {
+                                next := f32(y) - ent.extents.y * 2.0
+                                ent.touch_flags |= {.Top}
+                                if next < from do return from
+                                return next
+                            }
+                        }
+                    }
+                }
             case .Left:
                 for y in tile_min_y..=tile_max_y {
                     if y < 0 || y >= CHUNK_HEIGHT do continue
@@ -149,7 +168,6 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         }
                     }
                 }
-            case .Top:
             case .Back:
         }
     }
@@ -166,4 +184,12 @@ draw_ent :: proc(ent: ^Ent) {
     
     // Draw origin for debugging purposes
     // rl.DrawCircle(i32(dest.x), i32(dest.y), 2.0, rl.WHITE)
+}
+
+draw_ent_outline :: proc(ent: ^Ent) {
+    before_layer := ent.anim_player.layer_idx
+    defer ent.anim_player.layer_idx = before_layer
+    ent.anim_player.layer_idx = 1
+    
+    draw_ent(ent)
 }
