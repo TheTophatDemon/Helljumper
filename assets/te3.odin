@@ -21,6 +21,7 @@ Te3Tile :: struct {
 
 Te3Ent :: struct {
     position: [3]f32,
+    angles: [3]f32,
     properties: map[string]string
 }
 

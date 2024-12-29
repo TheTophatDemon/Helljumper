@@ -5,8 +5,6 @@ import rl "vendor:raylib"
 import "assets"
 
 update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
-    if world.game_lost do return
-
     STRAFE_SPEED :: 6.0
     JUMP_FORCE :: 12.0
     REGULAR_SPEED :: 11.0
@@ -16,7 +14,11 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     
     update_ent(player, world, delta_time)
 
-    if world.heaven_transition {
+    if world.game_lost {
+        player.anim_player.anim_idx = 4
+        player.vel.xz = {}
+    } else if world.heaven_transition {
+        player.anim_player.anim_idx = 1
         player.vel.y -= player.gravity * 2.0 * delta_time
         player.extents = {}
         for &ent in world.ents {
@@ -48,15 +50,16 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
         trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.GetGamepadButtonPressed() == .RIGHT_FACE_DOWN)
     
         if .Bottom in player.touch_flags {
-            player.anim_player.anim_idx = 0
             if trynna_jump {
                 player.vel.y = JUMP_FORCE
                 rl.PlaySound(assets.Sounds[.Jump])
             }
             if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
                 player.max_speed = MAX_SPEED
+                player.anim_player.anim_idx = 3
             } else {
                 player.max_speed = REGULAR_SPEED
+                player.anim_player.anim_idx = 0
             }
         } else {
             if player.vel.y > 0.0 {
@@ -72,6 +75,10 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
                 player.vel.y = 5.0
             }
         }
+
+        if .Spike in player.touched_tiles {
+            world_lose_game(world)
+        }
     
         // Collide with entities
         for &ent in world.ents {
@@ -84,6 +91,8 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
                 world.heaven_transition = true
                 ent.extents = {}
                 rl.PlaySound(assets.Sounds[.Ascend])
+            case .Fire:
+                world_lose_game(world)
             }
         }
     }

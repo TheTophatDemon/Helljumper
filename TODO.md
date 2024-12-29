@@ -1,6 +1,2 @@
 - Make more chunks
-- Obstacles
-- Sound effects
-- Run animation
 - Music
-- Menu

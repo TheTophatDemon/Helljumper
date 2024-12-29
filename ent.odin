@@ -17,6 +17,7 @@ Touching :: enum u8 {
 EntVariant :: enum {
     Player,
     Shallot,
+    Fire,
 }
 
 Ent :: struct {
@@ -28,9 +29,11 @@ Ent :: struct {
 	anim_player: assets.AnimPlayer,
     update_func: proc(ent: ^Ent, world: ^World, delta_time: f32),
     touch_flags: bit_set[Touching; u8],
+    touched_tiles: bit_set[TileType; u8],
     max_speed: f32,
     needs_outline: bool,
     variant: EntVariant,
+    touchdown: bool, // Has entity landed after spawning
 }
 
 update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
@@ -39,6 +42,7 @@ update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
     ent.vel.y += ent.gravity * delta_time
     next_pos := ent.pos + ent.vel * delta_time
     ent.touch_flags = {}
+    ent.touched_tiles = {}
     if ent.extents != {} {
         if ent.vel.y < 0 {
             ent.pos.y = move_and_collide_ent(ent, world, ent.pos.y, next_pos.y, .Bottom)
@@ -60,6 +64,7 @@ update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
     }
     if .Bottom in ent.touch_flags {
         ent.vel.y = 0.0
+        ent.touchdown = true
     }
 }
 
@@ -107,6 +112,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                             if tile := chunk.tiles[y][z][x]; tile != .Empty {
                                 next := f32(z) - ent.extents.z
                                 ent.touch_flags |= {.Front}
+                                ent.touched_tiles += {tile}
                                 if next < from do return from
                                 return next
                             }
@@ -123,6 +129,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                             if tile := chunk.tiles[y][z][x]; tile != .Empty {
                                 next := f32(y) + 1.0
                                 ent.touch_flags |= {.Bottom}
+                                ent.touched_tiles += {tile}
                                 if next > from do return from
                                 return next
                             }
@@ -139,6 +146,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                             if tile := chunk.tiles[y][z][x]; tile != .Empty {
                                 next := f32(y) - ent.extents.y * 2.0
                                 ent.touch_flags |= {.Top}
+                                ent.touched_tiles += {tile}
                                 if next < from do return from
                                 return next
                             }
@@ -155,6 +163,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                             if tile := chunk.tiles[y][z][x]; tile != .Empty {
                                 next := f32(x) + 1.0 + ent.extents.x
                                 ent.touch_flags |= {.Left}
+                                ent.touched_tiles += {tile}
                                 if next > from do return from
                                 return next
                             }
@@ -171,6 +180,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                             if tile := chunk.tiles[y][z][x]; tile != .Empty {
                                 next := f32(x) - ent.extents.x - 0.01
                                 ent.touch_flags |= {.Right}
+                                ent.touched_tiles += {tile}
                                 if next < from do return from
                                 return next
                             }

@@ -6,6 +6,8 @@ import "core:path/filepath"
 import "core:reflect"
 import "core:fmt"
 import "core:slice"
+import "core:math/linalg"
+import "core:math"
 
 import "assets"
 
@@ -22,6 +24,9 @@ TileType :: enum u8 {
 	Solid,
     Cloud,
     Pillar,
+    Bridge,
+    Spike,
+    HellBridge,
 }
 
 TileRects := [TileType]rl.Rectangle{
@@ -29,6 +34,9 @@ TileRects := [TileType]rl.Rectangle{
 	.Solid = rl.Rectangle{0, 0, 32, 32},
     .Cloud = rl.Rectangle{32, 0, 32, 32},
     .Pillar = rl.Rectangle{64, 0, 32, 32},
+    .Bridge = rl.Rectangle{64+32, 0, 32, 32},
+    .Spike = rl.Rectangle{0, 32, 32, 32},
+    .HellBridge = rl.Rectangle{32, 32, 32, 32},
 }
 
 Chunk :: struct {
@@ -58,12 +66,14 @@ init_world :: proc(world: ^World, heaven: bool) {
     world^ = {
         heaven = heaven,
     }
+    chunks_arr := assets.HeavenChunks if heaven else assets.HellChunks
     world.chunks[0].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
 	world.chunks[2].pos = rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
 	world.ents = make([dynamic]Ent, 0, 100)
-	load_next_chunk(world, 0, 0)
-	load_next_chunk(world, 1, 0)
-	load_next_chunk(world, 2, 0)
+	// load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
+    load_next_chunk(world, 0, 0)
+    load_next_chunk(world, 1, 0)
+	load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
 
 	world.camera = rl.Camera2D{
 		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
@@ -138,16 +148,15 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
             } else {
                 world_lose_game(world)
             }
+        } else {
+            if player_ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET {
+                world_lose_game(world)
+            }
         }
 
         // Player has risen
         if world.heaven_transition && player_ent.pos.y > 16.0 {
             init_world(world, true)
-        }
-
-        // Player has gone too far behind the camera
-        if player_ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET {
-            world_lose_game(world)
         }
 
         if !world.game_lost {
@@ -162,8 +171,9 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     return
 }
 
-world_lose_game :: proc(world: ^World) {
+world_lose_game :: proc(world: ^World, call_loc := #caller_location, call_expr := #caller_expression) {
     if world.game_lost do return
+    fmt.println("Player died because ", call_loc, call_expr)
     world.game_lost = true
     rl.PlaySound(assets.Sounds[.Lose])
 }
@@ -208,17 +218,37 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
     for te3_ent in te3_map.ents {
         name, has_name := te3_ent.properties["name"]
         if !has_name do continue
+        spawn_pos := world.chunks[chunk_idx].pos + (te3_ent.position / 2.0)
         switch name {
         case "shallot":
             // Spawn shallot
-            append(&world.ents, Ent{
-                pos = world.chunks[chunk_idx].pos + (te3_ent.position / 2.0),
-                extents = rl.Vector3{0.5, 64.0, 0.5},
-                tex = assets.Gfx[.Shallot],
-                sprite_origin = rl.Vector2{ 8.0, 360.0 },
-                variant = .Shallot,
-                update_func = update_ent,
-            })
+            if rand.float32() < 0.5 {
+                append(&world.ents, Ent{
+                    pos = spawn_pos,
+                    extents = rl.Vector3{0.5, 64.0, 0.5},
+                    tex = assets.Gfx[.Shallot],
+                    sprite_origin = rl.Vector2{ 8.0, 360.0 },
+                    variant = .Shallot,
+                    update_func = update_ent,
+                })
+            }
+        case "fire":
+            // Spawn fire
+            yaw := linalg.to_radians(te3_ent.angles[1])
+            fire := Ent{
+                pos = spawn_pos,
+                tex = assets.Gfx[.Fire],
+                sprite_origin = rl.Vector2{8.0, 16.0},
+                anim_player = assets.AnimPlayer{
+                    anims = &assets.Anims[.Fire],
+                },
+                extents = rl.Vector3{0.25, 0.5, 0.25},
+                update_func = update_fire,
+                needs_outline = true,
+                variant = .Fire,
+                vel = rl.Vector3{math.cos(yaw), 0.0, math.sin(yaw)} * 5.0,
+            }
+            append(&world.ents, fire)
         }
     }
 }
@@ -259,11 +289,10 @@ draw_tile :: proc(chunk: ^Chunk, x, y, z: int) {
 	src := TileRects[tile]
 	dest := rl.Rectangle{0, 0, src.width, src.height}
 	dest.x, dest.y = world_to_screen_coords(f32(x) + chunk.pos.x, f32(y) + chunk.pos.y, f32(z) + chunk.pos.z)
-	shade: u8
-	switch tile {
-		case .Empty: shade = 0
-		case .Solid: shade = 128 + u8(min(127, y * 16))
-		case .Cloud, .Pillar: shade = 200 + u8(min(55, y * 16))
+	shade: u8 = 255
+	#partial switch tile {
+        case .Solid: shade = 180 + u8(min(255-180, y * 16))
+		case .Cloud, .Pillar, .Bridge: shade = 200 + u8(min(55, y * 16))
 	}
 	
 	rl.DrawTexturePro(assets.Gfx[.Tiles], src, dest, rl.Vector2{0.0, 3.0 * src.height / 4.0}, 0.0, rl.Color{shade, shade, shade, 255})
