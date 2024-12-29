@@ -8,6 +8,7 @@ import "core:math"
 import "core:strings"
 import "core:os"
 import "core:encoding/endian"
+import "core:mem"
 
 import "assets"
 
@@ -30,11 +31,34 @@ Drawable :: union{
 za_warudo: World
 
 main :: proc() {
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
+
+		defer {
+			if len(track.allocation_map) > 0 {
+				fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+				for _, entry in track.allocation_map {
+					fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+				}
+			}
+			if len(track.bad_free_array) > 0 {
+				fmt.eprintf("=== %v incorrect frees: ===\n", len(track.bad_free_array))
+				for entry in track.bad_free_array {
+					fmt.eprintf("- %p @ %v\n", entry.memory, entry.location)
+				}
+			}
+			mem.tracking_allocator_destroy(&track)
+		}
+	}
+
 	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Helljumper")
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
 	rl.InitAudioDevice()
 	assets.load()
+	defer assets.unload()
 
 	game_screen := rl.LoadRenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT)
 	defer rl.UnloadRenderTexture(game_screen)
@@ -74,6 +98,7 @@ main :: proc() {
 		rl.BeginMode2D(za_warudo.camera)
 
 		drawables := make([dynamic]Drawable, 0, CHUNK_COUNT * CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH + len(za_warudo.ents))
+		defer delete(drawables)
 		for c in 0..<CHUNK_COUNT {
 			chunk := &za_warudo.chunks[c]
 			if !chunk_is_visible(&za_warudo, chunk) do continue
@@ -146,7 +171,7 @@ main :: proc() {
 		rl.DrawTexturePro(game_screen.texture, src, rl.Rectangle{0, 0, f32(game_screen.texture.width), f32(game_screen.texture.height)}, rl.Vector2{}, 0, rl.WHITE)
 
 		score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d", int(score), int(high_score))
-		c_score_text := strings.clone_to_cstring(score_text)
+		c_score_text := strings.clone_to_cstring(score_text, context.temp_allocator)
 		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.35, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
 		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.35, 4}, 32, 0.0, rl.GREEN)
 
@@ -168,6 +193,8 @@ main :: proc() {
 		// Clear temporary allocations
 		free_all(context.temp_allocator)
 	}
+
+	delete(za_warudo.ents)
 }
 
 draw_drop_shadow :: proc(drop_shadow: DropShadow) {

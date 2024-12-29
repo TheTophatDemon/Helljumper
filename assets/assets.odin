@@ -27,7 +27,13 @@ Anims: [GfxId]AnimSet
 HeavenChunks, HellChunks: [dynamic]Te3Map
 HudFont: rl.Font
 
+asset_arena: mem.Arena
+asset_memory: [500_000]u8
+
 load :: proc() {
+    mem.arena_init(&asset_arena, asset_memory[:])
+    context.allocator = mem.arena_allocator(&asset_arena)
+
     tex_from_bytes :: proc(bytes: []u8) -> rl.Texture2D {
         img := rl.LoadImageFromMemory(".png", &bytes[0], cast(i32)len(bytes))
         defer rl.UnloadImage(img)
@@ -93,7 +99,7 @@ load :: proc() {
 
     font_bytes := #load("gfx/Awe Mono Gold.ttf")
     codepoints := make([dynamic]rune, 0, 200)
-    defer delete(codepoints)
+    // defer delete(codepoints)
     for ru in ' '..='~' {
         append(&codepoints, ru)
     }
@@ -102,6 +108,18 @@ load :: proc() {
     }
 
     HudFont = rl.LoadFontFromMemory(".ttf", &font_bytes[0], cast(i32)len(font_bytes), 16, &codepoints[0], cast(i32)len(codepoints))
+}
 
-    // This memory is used until the end of the program, so nothing needs to be deallocated.
+unload :: proc() {
+    for &tex in Gfx {
+        rl.UnloadTexture(tex)
+    }
+
+    for &sound in Sounds {
+        rl.UnloadSound(sound)
+    }
+
+    rl.UnloadFont(HudFont)
+
+    mem.arena_free_all(&asset_arena)
 }
