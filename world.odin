@@ -11,7 +11,7 @@ import "assets"
 CHUNK_WIDTH :: 16
 CHUNK_HEIGHT :: 16
 CHUNK_LENGTH :: 64
-CHUNK_COUNT :: 2 // Number of chunks loaded at any one time.
+CHUNK_COUNT :: 3 // Number of chunks loaded at any one time.
 TILE_SPACING_HORZ :: 16
 TILE_SPACING_VERT :: 8
 
@@ -19,12 +19,14 @@ TileType :: enum u8 {
 	Empty,
 	Solid,
     Cloud,
+    Pillar,
 }
 
 TileRects := [TileType]rl.Rectangle{
 	.Empty = rl.Rectangle{},
 	.Solid = rl.Rectangle{0, 0, 32, 32},
     .Cloud = rl.Rectangle{32, 0, 32, 32},
+    .Pillar = rl.Rectangle{64, 0, 32, 32},
 }
 
 Chunk :: struct {
@@ -40,6 +42,43 @@ ChunkTile :: struct {
 World :: struct {
     chunks: [CHUNK_COUNT]Chunk,
     ents: [dynamic]Ent,
+    heaven: bool,
+    camera: rl.Camera2D,
+
+}
+
+init_world :: proc(world: ^World, heaven: bool) {
+    if world.ents != nil {
+        delete(world.ents)
+    }
+
+    world^ = {
+        heaven = heaven,
+    }
+    world.chunks[0].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
+	world.chunks[2].pos = rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
+	world.ents = make([dynamic]Ent, 0, 100)
+	load_next_chunk(world, 0, 0)
+	load_next_chunk(world, 1, 0)
+	load_next_chunk(world, 2, 0)
+
+	world.camera = rl.Camera2D{
+		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
+		zoom = 2,
+	}
+
+	// Spawn player
+	append(&world.ents, Ent{
+		pos = rl.Vector3{8.0, 16.0, 3.0},
+		tex = assets.Gfx[.Player],
+		sprite_origin = rl.Vector2{16.0, 40.0},
+		anim_player = assets.AnimPlayer{
+			anims = &assets.Anims[.Player],
+		},
+		extents = rl.Vector3{0.25, 1.0, 0.25},
+		update_func = update_player,
+		gravity = -20.0,
+	})
 }
 
 world_to_screen_coords :: proc(x, y, z: f32) -> (screen_x, screen_y: f32) {
@@ -51,11 +90,13 @@ world_to_screen_coords :: proc(x, y, z: f32) -> (screen_x, screen_y: f32) {
 load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
     assert(chunk_idx >= 0 && chunk_idx < CHUNK_COUNT)
 
+    chunk_arr := assets.HeavenChunks if world.heaven else assets.HellChunks
+
     te3_map: assets.Te3Map
     if asset_idx >= 0 {
-        te3_map = assets.Chunks[asset_idx]
+        te3_map = chunk_arr[asset_idx]
     } else {
-        te3_map = rand.choice(assets.Chunks[:])
+        te3_map = rand.choice(chunk_arr[:])
     }
 
     te3_tiles := assets.load_tile_grid_from_te3_map(&te3_map)

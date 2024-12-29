@@ -34,10 +34,11 @@ load_tile_grid_from_te3_map :: proc(file: ^Te3Map, allocator := context.allocato
 
     for t, byte_ofs := 0, 0; t < len(tiles); {
         tile: Te3Tile
-        tile.model_id, _ = endian.get_i32(tile_bytes[byte_ofs:byte_ofs + 4], .Little)
-        tile.angle, _ = endian.get_i32(tile_bytes[byte_ofs:byte_ofs + 8], .Little)
-        tile.tex_id, _ = endian.get_i32(tile_bytes[byte_ofs:byte_ofs + 12], .Little)
-        tile.pitch, _ = endian.get_i32(tile_bytes[byte_ofs:byte_ofs + 16], .Little)
+        ok1, ok2, ok3, ok4: bool
+        tile.model_id, ok1 = endian.get_i32(tile_bytes[byte_ofs:byte_ofs + 4], .Little)
+        tile.angle, ok2 = endian.get_i32(tile_bytes[byte_ofs + 4:byte_ofs + 8], .Little)
+        tile.tex_id, ok3 = endian.get_i32(tile_bytes[byte_ofs + 8:byte_ofs + 12], .Little)
+        tile.pitch, ok4 = endian.get_i32(tile_bytes[byte_ofs + 12:byte_ofs + 16], .Little)
         byte_ofs += 16
         if tile.model_id < 0 {
             // Skip run of blank tiles.

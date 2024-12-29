@@ -9,9 +9,9 @@ PlayerProps :: struct {
 update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     STRAFE_SPEED :: 6.0
     JUMP_FORCE :: 12.0
-    REGULAR_SPEED :: 4.0
+    REGULAR_SPEED :: 8.0
     MAX_SPEED :: 16.0
-    FWD_ACCEL :: 5.0
+    FWD_ACCEL :: 10.0
     FRICTION :: 20.0
     
     update_ent(player, world, delta_time)

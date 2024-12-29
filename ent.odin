@@ -164,5 +164,6 @@ draw_ent :: proc(ent: ^Ent) {
     dest.x, dest.y = world_to_screen_coords(ent.pos.x, ent.pos.y, ent.pos.z)
     rl.DrawTexturePro(ent.tex, src, dest, ent.sprite_origin, 0.0, rl.WHITE)
     
-    rl.DrawCircle(i32(dest.x), i32(dest.y), 2.0, rl.WHITE)
+    // Draw origin for debugging purposes
+    // rl.DrawCircle(i32(dest.x), i32(dest.y), 2.0, rl.WHITE)
 }

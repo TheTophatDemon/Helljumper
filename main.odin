@@ -7,8 +7,8 @@ import "core:math/rand"
 
 import "assets"
 
-WINDOW_WIDTH :: 800
-WINDOW_HEIGHT :: 600
+WINDOW_WIDTH :: 1280
+WINDOW_HEIGHT :: 720
 
 DropShadow :: struct {
 	pos: rl.Vector3,
@@ -29,64 +29,54 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 	assets.load()
 
-	za_warudo.chunks[1].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
-	za_warudo.ents = make([dynamic]Ent, 0, 100)
-	defer delete(za_warudo.ents)
-	load_next_chunk(&za_warudo, 0, 0)
-	load_next_chunk(&za_warudo, 1, 1)
-
-	camera := rl.Camera2D{
-		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
-		zoom = 1.0,
-	}
-
-	// Spawn player
-	append(&za_warudo.ents, Ent{
-		pos = rl.Vector3{8.0, 3.5, 3.0},
-		tex = assets.Gfx[.Player],
-		sprite_origin = rl.Vector2{16.0, 40.0},
-		anim_player = assets.AnimPlayer{
-			anims = &assets.Anims[.Player],
-		},
-		extents = rl.Vector3{0.25, 1.0, 0.25},
-		update_func = update_player,
-		gravity = -20.0,
-	})
-
-	player_ent := &za_warudo.ents[0]
+	init_world(&za_warudo, true)
 
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 
-		player_z_before_update := player_ent.pos.z
-
+		player_z_before_update: f32
+		player_ent: ^Ent
 		for &ent in za_warudo.ents {
+			if ent.update_func == update_player {
+				player_z_before_update = ent.pos.z
+				player_ent = &ent
+			}
 			if ent.update_func != nil do ent.update_func(&ent, &za_warudo, delta_time)
 		}
 
-		camera.target.x, camera.target.y = world_to_screen_coords(0.0, 0.0, player_ent.pos.z)
+		za_warudo.camera.target.x, za_warudo.camera.target.y = world_to_screen_coords(0.0, 0.0, player_ent.pos.z + 6.0)
+
 		for c in 0..<CHUNK_COUNT {
 			chunk := &za_warudo.chunks[c]
 			midpoint := chunk.pos.z + CHUNK_LENGTH / 2
 			if player_ent.pos.z > midpoint && player_z_before_update <= midpoint {
 				// Time to generate the next chunk of the level
-				next_chunk_idx := (c + 1) % CHUNK_COUNT
+				next_chunk_idx := (c + 2) % CHUNK_COUNT
 				next_chunk := &za_warudo.chunks[next_chunk_idx]
-				next_chunk.pos = chunk.pos + rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
+				next_chunk.pos = chunk.pos + rl.Vector3{0.0, 0.0, CHUNK_LENGTH * 2}
 				load_next_chunk(&za_warudo, next_chunk_idx)
 				fmt.println("New chunk loaded.")
 				break
 			}
 		}
 
+		defer if player_ent.pos.y < -16.0 {
+			// Player has fallen
+			init_world(&za_warudo, !za_warudo.heaven)
+		}
+
 		rl.BeginDrawing()
-		rl.ClearBackground(rl.Color{0, 64, 200, 255})
-		rl.BeginMode2D(camera)
+		if za_warudo.heaven {
+			rl.ClearBackground(rl.Color{0, 64, 200, 255})
+		} else {
+			rl.ClearBackground(rl.Color{115, 23, 45, 255})
+		}
+		rl.BeginMode2D(za_warudo.camera)
 
 		drawables := make([dynamic]Drawable, 0, CHUNK_COUNT * CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH + len(za_warudo.ents))
 		for c in 0..<CHUNK_COUNT {
 			chunk := &za_warudo.chunks[c]
-			if !chunk_is_visible(camera, chunk) do continue
+			if !chunk_is_visible(za_warudo.camera, chunk) do continue
 			for y in 0..<CHUNK_HEIGHT {
 				for z in 0..<CHUNK_LENGTH {
 					for x in 0..<CHUNK_WIDTH {
@@ -132,23 +122,7 @@ main :: proc() {
 			}
 		}
 
-		slice.sort_by(drawables[:], proc(a, b: Drawable) -> bool {
-			a_pos: rl.Vector3
-			switch x in a {
-				case ^Ent: a_pos = x.pos
-				case ChunkTile: a_pos = rl.Vector3{f32(x.coords[0]), f32(x.coords[1]), f32(x.coords[2])} + x.chunk.pos
-				case DropShadow: a_pos = x.pos
-			}
-			b_pos: rl.Vector3
-			switch x in b {
-				case ^Ent: b_pos = x.pos
-				case ChunkTile: b_pos = rl.Vector3{f32(x.coords[0]), f32(x.coords[1]), f32(x.coords[2])} + x.chunk.pos
-				case DropShadow: b_pos = x.pos
-			}
-
-			// Y is multiplied by 100 in order to prevent flickering
-			return (b_pos.y * 100) + b_pos.x - b_pos.z > (a_pos.y * 100) + a_pos.x - a_pos.z
-		})
+		sort_drawables(drawables[:])
 
 		for drawable in drawables {
 			switch variant in drawable {
@@ -174,12 +148,13 @@ draw_tile :: proc(chunk: ^Chunk, x, y, z: int) {
 	src := TileRects[tile]
 	dest := rl.Rectangle{0, 0, src.width, src.height}
 	dest.x, dest.y = world_to_screen_coords(f32(x) + chunk.pos.x, f32(y) + chunk.pos.y, f32(z) + chunk.pos.z)
-	gradient := 128
-	#partial switch tile {
-		case .Solid: gradient = 16
-		case .Cloud: gradient = 64
+	shade: u8
+	switch tile {
+		case .Empty: shade = 0
+		case .Solid: shade = 128 + u8(min(127, y * 16))
+		case .Cloud, .Pillar: shade = 200 + u8(min(55, y * 16))
 	}
-	shade := 128 + u8(min(127, y * gradient))
+	
 	rl.DrawTexturePro(assets.Gfx[.Tiles], src, dest, rl.Vector2{0.0, 3.0 * src.height / 4.0}, 0.0, rl.Color{shade, shade, shade, 255})
 }
 
