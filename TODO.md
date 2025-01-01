@@ -1,8 +1,4 @@
-- Pot hole in one of the heaven chunks
-- Make shallots not spawn immediately in Hell
-- Why is the drop shadow not appearing on that one bridge?
-- Get rid of the hidden spikes in the Hell castle chunk
+- Heaven music
 - Fix player's foot intersecting with tile
 - Make more chunks
-- Music
 - Progressive difficulty

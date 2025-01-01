@@ -70,7 +70,11 @@ main :: proc() {
 	high_score := load_high_score()
 	restart_timer: f32
 
+	curr_song := assets.Songs[.IgnisMagnis]
+	rl.PlayMusicStream(curr_song)
+
 	for !rl.WindowShouldClose() {
+		rl.UpdateMusicStream(curr_song)
 		delta_time := rl.GetFrameTime()
 
 		score = update_world(&za_warudo, delta_time, score)

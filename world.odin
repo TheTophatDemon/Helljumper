@@ -70,8 +70,7 @@ init_world :: proc(world: ^World, heaven: bool) {
     world.chunks[0].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
 	world.chunks[2].pos = rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
 	world.ents = make([dynamic]Ent, 0, 100)
-	// load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
-    load_next_chunk(world, 0, 0)
+	load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
     load_next_chunk(world, 1, 0)
 	load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
 
@@ -103,11 +102,9 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     new_score = score
 
     player_z_before_update: f32
-    player_ent: ^Ent
     for &ent in world.ents {
         if ent.variant == .Player {
             player_z_before_update = ent.pos.z
-            player_ent = &ent
         }
         if ent.update_func != nil do ent.update_func(&ent, world, delta_time)
     }
@@ -117,6 +114,15 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
         }
     }
 
+    // Must do this after entities are removed in case player gets shifted around in the array.
+    player_ent: ^Ent
+    for &ent in world.ents {
+        if ent.variant == .Player {
+            player_ent = &ent
+            break
+        }
+    }
+    
     distance_gained: f32
     if (player_ent == nil || player_ent.pos.z > 6.0) && !world.heaven_transition {
         distance_gained = SCROLL_SPEED * delta_time
@@ -222,7 +228,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
         switch name {
         case "shallot":
             // Spawn shallot
-            if rand.float32() < 0.5 {
+            if world.distance_traveled > CHUNK_LENGTH * 2 && rand.float32() < 0.50 {
                 append(&world.ents, Ent{
                     pos = spawn_pos,
                     extents = rl.Vector3{0.5, 64.0, 0.5},

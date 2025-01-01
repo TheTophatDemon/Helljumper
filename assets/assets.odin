@@ -21,8 +21,13 @@ SoundId :: enum {
     Lose,
 }
 
+SongId :: enum {
+    IgnisMagnis,
+}
+
 Gfx: [GfxId]rl.Texture2D
 Sounds: [SoundId]rl.Sound
+Songs: [SongId]rl.Music
 Anims: [GfxId]AnimSet
 HeavenChunks, HellChunks: [dynamic]Te3Map
 HudFont: rl.Font
@@ -58,6 +63,14 @@ load :: proc() {
         .Ascend = sound_from_bytes(#load("sounds/ascend.wav")),
         .Descend = sound_from_bytes(#load("sounds/descend.wav")),
         .Lose = sound_from_bytes(#load("sounds/lose.wav")),
+    }
+
+    song_from_bytes :: proc(bytes: []u8) -> rl.Music {
+        return rl.LoadMusicStreamFromMemory(".ogg", &bytes[0], cast(i32)len(bytes))
+    }
+
+    Songs = [SongId]rl.Music {
+        .IgnisMagnis = song_from_bytes(#load("music/ignis_magnis.ogg")),
     }
 
     anims_from_bytes :: proc(bytes: []u8, call_expr := #caller_expression) -> AnimSet {
@@ -99,7 +112,7 @@ load :: proc() {
 
     font_bytes := #load("gfx/Awe Mono Gold.ttf")
     codepoints := make([dynamic]rune, 0, 200)
-    // defer delete(codepoints)
+    
     for ru in ' '..='~' {
         append(&codepoints, ru)
     }
@@ -117,6 +130,10 @@ unload :: proc() {
 
     for &sound in Sounds {
         rl.UnloadSound(sound)
+    }
+
+    for &song in Songs {
+        rl.UnloadMusicStream(song)
     }
 
     rl.UnloadFont(HudFont)
