@@ -1,4 +1,5 @@
 - Heaven music
-- Fix player's foot intersecting with tile
+- Bolts of lighting in heaven that destroy the floor
 - Make more chunks
 - Progressive difficulty
+  - Done through adjusting spawn rates for various hazards

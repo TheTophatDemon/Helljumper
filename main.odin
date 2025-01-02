@@ -72,6 +72,7 @@ main :: proc() {
 
 	curr_song := assets.Songs[.IgnisMagnis]
 	rl.PlayMusicStream(curr_song)
+	when ODIN_DEBUG do rl.SetMusicVolume(curr_song, 0.0)
 
 	for !rl.WindowShouldClose() {
 		rl.UpdateMusicStream(curr_song)
@@ -127,6 +128,8 @@ main :: proc() {
 		}
 		for &ent in za_warudo.ents {
 			append(&drawables, &ent)
+
+			if !ent.needs_drop_shadow do continue
 
 			drop_shadow_loop:
 			for c in 0..<CHUNK_COUNT {

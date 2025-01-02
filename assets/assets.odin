@@ -12,6 +12,7 @@ GfxId :: enum {
     Player,
     Shallot,
     Fire,
+    SpikeOutline,
 }
 
 SoundId :: enum {
@@ -50,6 +51,7 @@ load :: proc() {
         .Player = tex_from_bytes(#load("gfx/player.png")),
         .Shallot = tex_from_bytes(#load("gfx/shallot.png")),
         .Fire = tex_from_bytes(#load("gfx/fire.png")),
+        .SpikeOutline = tex_from_bytes(#load("gfx/spike_outline.png")),
     }
 
     sound_from_bytes :: proc(bytes: []u8) -> rl.Sound {

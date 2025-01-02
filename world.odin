@@ -73,6 +73,7 @@ init_world :: proc(world: ^World, heaven: bool) {
 	load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
     load_next_chunk(world, 1, 0)
 	load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
+	// load_next_chunk(world, 2, 2)
 
 	world.camera = rl.Camera2D{
 		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
@@ -84,7 +85,7 @@ init_world :: proc(world: ^World, heaven: bool) {
 	append(&world.ents, Ent{
 		pos = player_pos,
 		tex = assets.Gfx[.Player],
-		sprite_origin = rl.Vector2{16.0, 40.0},
+		sprite_origin = rl.Vector2{16.0, 46.0},
 		anim_player = assets.AnimPlayer{
 			anims = &assets.Anims[.Player],
 		},
@@ -92,6 +93,7 @@ init_world :: proc(world: ^World, heaven: bool) {
 		update_func = update_player,
 		gravity = -20.0,
         needs_outline = true,
+        needs_drop_shadow = true,
         variant = .Player,
 	})
 }
@@ -127,6 +129,14 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     if (player_ent == nil || player_ent.pos.z > 6.0) && !world.heaven_transition {
         distance_gained = SCROLL_SPEED * delta_time
         world.distance_traveled += distance_gained
+    }
+    when ODIN_DEBUG {
+        if rl.IsKeyDown(.GRAVE) {
+            // Stop the movement of the player and the camera in order to inspect bugs
+            world.distance_traveled -= distance_gained
+            distance_gained = 0.0
+            if player_ent != nil do player_ent.vel.z = 0.0
+        }
     }
     
     world.camera.target.x, world.camera.target.y = world_to_screen_coords(0.0, 0.0, world.distance_traveled)
@@ -236,6 +246,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
                     sprite_origin = rl.Vector2{ 8.0, 360.0 },
                     variant = .Shallot,
                     update_func = update_ent,
+                    needs_drop_shadow = true,
                 })
             }
         case "fire":
@@ -243,6 +254,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
             yaw := linalg.to_radians(te3_ent.angles[1])
             fire := Ent{
                 pos = spawn_pos,
+                home = spawn_pos,
                 tex = assets.Gfx[.Fire],
                 sprite_origin = rl.Vector2{8.0, 16.0},
                 anim_player = assets.AnimPlayer{
@@ -251,10 +263,22 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
                 extents = rl.Vector3{0.25, 0.5, 0.25},
                 update_func = update_fire,
                 needs_outline = true,
+                needs_drop_shadow = true,
                 variant = .Fire,
-                vel = rl.Vector3{math.cos(yaw), 0.0, math.sin(yaw)} * 5.0,
+                max_speed = 1.0,
+                vel = rl.Vector3{-math.sin(yaw), 0.0, math.cos(yaw)},
             }
             append(&world.ents, fire)
+        case "spike":
+            // Spawn spike entity (used to display outlines when spike tiles are behind walls)
+            spike := Ent{
+                pos = spawn_pos,
+                tex = assets.Gfx[.SpikeOutline],
+                sprite_origin = rl.Vector2{8.0, 8.0},
+                needs_outline = true,
+                variant = .Decoration,
+            }
+            append(&world.ents, spike)
         }
     }
 }

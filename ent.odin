@@ -2,6 +2,7 @@ package main
 
 import rl "vendor:raylib"
 import "core:math/linalg"
+import "core:fmt"
 
 import "assets"
 
@@ -18,10 +19,11 @@ EntVariant :: enum {
     Player,
     Shallot,
     Fire,
+    Decoration, // Stuff not interacted with
 }
 
 Ent :: struct {
-	pos, vel: rl.Vector3,
+	pos, home, vel: rl.Vector3,
     gravity: f32,
     extents: rl.Vector3, // Half size of the collision box. Top of the box is extents.y * 2 units above the ent's position.
     sprite_origin: rl.Vector2,
@@ -31,9 +33,8 @@ Ent :: struct {
     touch_flags: bit_set[Touching; u8],
     touched_tiles: bit_set[TileType; u8],
     max_speed: f32,
-    needs_outline: bool,
+    needs_outline, needs_drop_shadow: bool,
     variant: EntVariant,
-    touchdown: bool, // Has entity landed after spawning
 }
 
 update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
@@ -64,7 +65,6 @@ update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
     }
     if .Bottom in ent.touch_flags {
         ent.vel.y = 0.0
-        ent.touchdown = true
     }
 }
 
@@ -208,7 +208,12 @@ draw_ent :: proc(ent: ^Ent) {
 draw_ent_outline :: proc(ent: ^Ent) {
     before_layer := ent.anim_player.layer_idx
     defer ent.anim_player.layer_idx = before_layer
-    ent.anim_player.layer_idx = 1
+
+    if ent.anim_player.anims != nil && len(ent.anim_player.anims.meta.layers) > 1 {
+        // The outline is stored on layer 1 in the sprite JSON
+        // If this layer doesn't exist then simply draw the sprite again.
+        ent.anim_player.layer_idx = 1
+    }
     
     draw_ent(ent)
 }
