@@ -20,6 +20,12 @@ TIME_TO_RESTART :: 5.0 // Seconds
 HEAVEN_BG_COLOR :: rl.Color{0, 64, 200, 255}
 HELL_BG_COLOR :: rl.Color{115, 23, 45, 255}
 
+when ODIN_DEBUG {
+	MUSIC_VOLUME: f32 : 1.0
+} else {
+	MUSIC_VOLUME: f32 : 1.0
+}
+
 DropShadow :: struct {
 	pos: rl.Vector3,
 	scale: f32,
@@ -32,6 +38,7 @@ Drawable :: union{
 }
 
 za_warudo: World
+curr_song, next_song: rl.Music
 
 main :: proc() {
 	when ODIN_DEBUG {
@@ -75,13 +82,27 @@ main :: proc() {
 	global_timer: f32
 	bg_color: rl.Color = HEAVEN_BG_COLOR
 
-	curr_song := assets.Songs[.IgnisMagnis]
+	curr_song = assets.Songs[.TheLonging]
+	next_song = curr_song
+	song_volume := MUSIC_VOLUME
 	rl.PlayMusicStream(curr_song)
-	when ODIN_DEBUG do rl.SetMusicVolume(curr_song, 1.0)
+	rl.SetMusicVolume(curr_song, song_volume)
 
 	for !rl.WindowShouldClose() {
-		rl.UpdateMusicStream(curr_song)
 		delta_time := rl.GetFrameTime()
+
+		rl.UpdateMusicStream(curr_song)
+		if next_song != curr_song {
+			song_volume -= delta_time
+			if song_volume < 0 {
+				song_volume = MUSIC_VOLUME
+				rl.StopMusicStream(curr_song)
+				curr_song = next_song
+				rl.PlayMusicStream(curr_song)
+			}
+			rl.SetMusicVolume(curr_song, song_volume)
+		}
+
 		global_timer += delta_time
 
 		score = update_world(&za_warudo, delta_time, score)

@@ -26,6 +26,7 @@ SoundId :: enum {
 
 SongId :: enum {
     IgnisMagnis,
+    TheLonging,
 }
 
 Gfx: [GfxId]rl.Texture2D
@@ -77,6 +78,7 @@ load :: proc() {
 
     Songs = [SongId]rl.Music {
         .IgnisMagnis = song_from_bytes(#load("music/ignis_magnis.ogg")),
+        .TheLonging = song_from_bytes(#load("music/the_longing.ogg")),
     }
 
     anims_from_bytes :: proc(bytes: []u8, call_expr := #caller_expression) -> AnimSet {

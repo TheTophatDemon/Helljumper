@@ -96,6 +96,12 @@ init_world :: proc(world: ^World, heaven: bool) {
         needs_drop_shadow = true,
         variant = .Player,
 	})
+
+    if heaven {
+        next_song = assets.Songs[.TheLonging]
+    } else {
+        next_song = assets.Songs[.IgnisMagnis]
+    }
 }
 
 update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: f32) {
@@ -113,7 +119,7 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     #reverse for &ent, e in world.ents {
         fell_behind := ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET
         life_time, has_life_time := ent.life_timer.?
-        if ent.variant != .Player && (fell_behind || life_time <= 0) {
+        if ent.variant != .Player && (fell_behind || (has_life_time && life_time <= 0)) {
             unordered_remove(&world.ents, e)
         }
     }
@@ -163,6 +169,7 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
             if world.heaven {
                 init_world(world, false)
                 rl.PlaySound(assets.Sounds[.Descend])
+                next_song = assets.Songs[.IgnisMagnis]
             } else {
                 world_lose_game(world)
             }

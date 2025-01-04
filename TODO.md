@@ -1,4 +1,3 @@
-- Heaven music
 - Make more chunks
   - Moving platforms?
 - Progressive difficulty
