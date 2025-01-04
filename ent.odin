@@ -18,13 +18,14 @@ Touching :: enum u8 {
 EntVariant :: enum {
     Player,
     Shallot,
-    Fire,
+    Hazard,
     Decoration, // Stuff not interacted with
 }
 
 Ent :: struct {
 	pos, home, vel: rl.Vector3,
     gravity: f32,
+    life_timer: Maybe(f32),
     extents: rl.Vector3, // Half size of the collision box. Top of the box is extents.y * 2 units above the ent's position.
     sprite_origin: rl.Vector2,
 	tex: rl.Texture2D,

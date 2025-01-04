@@ -73,7 +73,7 @@ init_world :: proc(world: ^World, heaven: bool) {
 	load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
     load_next_chunk(world, 1, 0)
 	load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
-	// load_next_chunk(world, 2, 2)
+	// load_next_chunk(world, 2, 4)
 
 	world.camera = rl.Camera2D{
 		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
@@ -111,7 +111,9 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
         if ent.update_func != nil do ent.update_func(&ent, world, delta_time)
     }
     #reverse for &ent, e in world.ents {
-        if ent.variant != .Player && ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET {
+        fell_behind := ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET
+        life_time, has_life_time := ent.life_timer.?
+        if ent.variant != .Player && (fell_behind || life_time <= 0) {
             unordered_remove(&world.ents, e)
         }
     }
@@ -209,7 +211,8 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
     if asset_idx >= 0 {
         te3_map = chunk_arr[asset_idx]
     } else {
-        te3_map = rand.choice(chunk_arr[:])
+        // te3_map = rand.choice(chunk_arr[:])
+        te3_map = chunk_arr[4]
     }
 
     te3_tiles := assets.load_tile_grid_from_te3_map(&te3_map)
@@ -264,7 +267,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
                 update_func = update_fire,
                 needs_outline = true,
                 needs_drop_shadow = true,
-                variant = .Fire,
+                variant = .Hazard,
                 max_speed = 1.0,
                 vel = rl.Vector3{-math.sin(yaw), 0.0, math.cos(yaw)},
             }
@@ -279,6 +282,23 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
                 variant = .Decoration,
             }
             append(&world.ents, spike)
+        case "lightning":
+            if rand.float32() < 0.50 do break
+            lightning := Ent{
+                pos = spawn_pos + rl.Vector3{0.0, 50.0, 0.0},
+                tex = assets.Gfx[.Lightning],
+                anim_player = assets.AnimPlayer{
+                    anims = &assets.Anims[.Lightning],
+                },
+                sprite_origin = rl.Vector2{8.0, 360.0},
+                extents = rl.Vector3{0.5, 64.0, 0.5},
+                update_func = update_lightning,
+                needs_outline = false,
+                needs_drop_shadow = true,
+                variant = .Hazard,
+                life_timer = 0.75,
+            }
+            append(&world.ents, lightning)
         }
     }
 }

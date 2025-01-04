@@ -91,7 +91,7 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
                 world.heaven_transition = true
                 ent.extents = {}
                 rl.PlaySound(assets.Sounds[.Ascend])
-            case .Fire:
+            case .Hazard:
                 world_lose_game(world)
             }
         }

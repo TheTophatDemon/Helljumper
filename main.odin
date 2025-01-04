@@ -138,8 +138,8 @@ main :: proc() {
 				tile_x := int(ent.pos.x - chunk.pos.x)
 				tile_y := int(ent.pos.y - chunk.pos.y)
 				tile_z := int(ent.pos.z - chunk.pos.z)
-				if tile_x >= 0 && tile_y >= 0 && tile_z >= 0 && tile_x < CHUNK_WIDTH && tile_y < CHUNK_HEIGHT && tile_z < CHUNK_LENGTH {
-					for y := tile_y; y >= 0; y -= 1 {
+				if tile_x >= 0 && tile_y >= 0 && tile_z >= 0 && tile_x < CHUNK_WIDTH && tile_z < CHUNK_LENGTH {
+					for y := min(CHUNK_HEIGHT - 1, tile_y); y >= 0; y -= 1 {
 						if chunk.tiles[y][tile_z][tile_x] != .Empty {
 							if abs(ent.pos.y - f32(y)) > 1.25 {
 								append(&drawables, DropShadow{

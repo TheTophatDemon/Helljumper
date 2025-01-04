@@ -13,6 +13,7 @@ GfxId :: enum {
     Shallot,
     Fire,
     SpikeOutline,
+    Lightning,
 }
 
 SoundId :: enum {
@@ -52,6 +53,7 @@ load :: proc() {
         .Shallot = tex_from_bytes(#load("gfx/shallot.png")),
         .Fire = tex_from_bytes(#load("gfx/fire.png")),
         .SpikeOutline = tex_from_bytes(#load("gfx/spike_outline.png")),
+        .Lightning = tex_from_bytes(#load("gfx/lightning.png")),
     }
 
     sound_from_bytes :: proc(bytes: []u8) -> rl.Sound {
@@ -86,6 +88,7 @@ load :: proc() {
 
     Anims[.Player] = anims_from_bytes(#load("gfx/player.json"))
     Anims[.Fire] = anims_from_bytes(#load("gfx/fire.json"))
+    Anims[.Lightning] = anims_from_bytes(#load("gfx/lightning.json"))
 
     heaven_chunk_files := #load_directory("chunks/heaven")
     hell_chunk_files := #load_directory("chunks/hell")

@@ -1,5 +1,7 @@
 - Heaven music
-- Bolts of lighting in heaven that destroy the floor
+- Bolts of lighting
+  - Make them destroy the floor
+  - Make the screen flash
 - Make more chunks
 - Progressive difficulty
   - Done through adjusting spawn rates for various hazards
