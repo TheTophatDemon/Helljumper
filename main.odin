@@ -17,6 +17,9 @@ WINDOW_HEIGHT :: 720
 HIGH_SCORE_FILE_NAME :: "high_score"
 TIME_TO_RESTART :: 5.0 // Seconds
 
+HEAVEN_BG_COLOR :: rl.Color{0, 64, 200, 255}
+HELL_BG_COLOR :: rl.Color{115, 23, 45, 255}
+
 DropShadow :: struct {
 	pos: rl.Vector3,
 	scale: f32,
@@ -69,14 +72,17 @@ main :: proc() {
 	new_record: bool
 	high_score := load_high_score()
 	restart_timer: f32
+	global_timer: f32
+	bg_color: rl.Color = HEAVEN_BG_COLOR
 
 	curr_song := assets.Songs[.IgnisMagnis]
 	rl.PlayMusicStream(curr_song)
-	when ODIN_DEBUG do rl.SetMusicVolume(curr_song, 0.0)
+	when ODIN_DEBUG do rl.SetMusicVolume(curr_song, 1.0)
 
 	for !rl.WindowShouldClose() {
 		rl.UpdateMusicStream(curr_song)
 		delta_time := rl.GetFrameTime()
+		global_timer += delta_time
 
 		score = update_world(&za_warudo, delta_time, score)
 		if za_warudo.game_lost {
@@ -95,11 +101,21 @@ main :: proc() {
 
 		rl.BeginDrawing()
 		rl.BeginTextureMode(game_screen)
+		
 		if za_warudo.heaven {
-			rl.ClearBackground(rl.Color{0, 64, 200, 255})
+			if rl.IsSoundPlaying(assets.Sounds[.Lightning]) {
+				// BG color will strobe when there's lightning
+				strobe := math.sin(global_timer * 10.0)
+				bg_color = rl.Color{0, u8(96.0 + (strobe * 32.0)), u8(160.0 + strobe * 40.0), 255}
+			} else if bg_color != HELL_BG_COLOR {
+				bg_color = rl.ColorLerp(bg_color, HEAVEN_BG_COLOR, delta_time)
+			} else {
+				bg_color = HEAVEN_BG_COLOR
+			}
 		} else {
-			rl.ClearBackground(rl.Color{115, 23, 45, 255})
+			bg_color = HELL_BG_COLOR
 		}
+		rl.ClearBackground(bg_color)
 		rl.BeginMode2D(za_warudo.camera)
 
 		drawables := make([dynamic]Drawable, 0, CHUNK_COUNT * CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH + len(za_warudo.ents))

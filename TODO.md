@@ -1,7 +1,7 @@
 - Heaven music
-- Bolts of lighting
-  - Make them destroy the floor
-  - Make the screen flash
 - Make more chunks
+  - Moving platforms?
 - Progressive difficulty
   - Done through adjusting spawn rates for various hazards
+- Instructions / Splash screen
+- Worst score?

@@ -211,8 +211,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
     if asset_idx >= 0 {
         te3_map = chunk_arr[asset_idx]
     } else {
-        // te3_map = rand.choice(chunk_arr[:])
-        te3_map = chunk_arr[4]
+        te3_map = rand.choice(chunk_arr[:])
     }
 
     te3_tiles := assets.load_tile_grid_from_te3_map(&te3_map)
