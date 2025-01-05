@@ -27,6 +27,8 @@ TileType :: enum u8 {
     Bridge,
     Spike,
     HellBridge,
+    Rock,
+    LavaRock,
 }
 
 TileRects := [TileType]rl.Rectangle{
@@ -37,6 +39,8 @@ TileRects := [TileType]rl.Rectangle{
     .Bridge = rl.Rectangle{64+32, 0, 32, 32},
     .Spike = rl.Rectangle{0, 32, 32, 32},
     .HellBridge = rl.Rectangle{32, 32, 32, 32},
+    .Rock = rl.Rectangle{64, 32, 32, 32},
+    .LavaRock = rl.Rectangle{96, 32, 32, 32},
 }
 
 Chunk :: struct {

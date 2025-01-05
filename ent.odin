@@ -32,7 +32,7 @@ Ent :: struct {
 	anim_player: assets.AnimPlayer,
     update_func: proc(ent: ^Ent, world: ^World, delta_time: f32),
     touch_flags: bit_set[Touching; u8],
-    touched_tiles: bit_set[TileType; u8],
+    touched_tiles: bit_set[TileType; u64],
     max_speed: f32,
     needs_outline, needs_drop_shadow: bool,
     variant: EntVariant,

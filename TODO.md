@@ -3,4 +3,3 @@
 - Progressive difficulty
   - Done through adjusting spawn rates for various hazards
 - Instructions / Splash screen
-- Worst score?

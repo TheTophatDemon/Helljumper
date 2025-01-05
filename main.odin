@@ -9,6 +9,7 @@ import "core:strings"
 import "core:os"
 import "core:encoding/endian"
 import "core:mem"
+import "core:time"
 
 import "assets"
 
@@ -73,11 +74,15 @@ main :: proc() {
 	game_screen := rl.LoadRenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT)
 	defer rl.UnloadRenderTexture(game_screen)
 
+	rand.reset(u64(time.time_to_unix(time.now())))
+
 	init_world(&za_warudo, true)
 
 	score: f32
 	new_record: bool
-	high_score := load_high_score()
+	high_score, low_score := load_high_score()
+	old_high_score := high_score
+	old_low_score := low_score
 	restart_timer: f32
 	global_timer: f32
 	bg_color: rl.Color = HEAVEN_BG_COLOR
@@ -106,17 +111,32 @@ main :: proc() {
 		global_timer += delta_time
 
 		score = update_world(&za_warudo, delta_time, score)
+		if int(score) > int(high_score) {
+			high_score = score
+		}
+		if int(score) < int(low_score) {
+			low_score = score
+		}
 		if za_warudo.game_lost {
-			if int(score) > int(high_score) {
-				high_score = score
-				new_record = true
-				save_high_score(high_score)
-			}
 			restart_timer += delta_time
-			if restart_timer > TIME_TO_RESTART || (restart_timer > 1.0 && rl.GetKeyPressed() != rl.KeyboardKey.KEY_NULL) {
-				restart_timer = 0.0
-				score = 0
-				init_world(&za_warudo, true)
+			if za_warudo.heaven {
+				// When you die in heaven, you just go to hell.
+				if restart_timer > TIME_TO_RESTART / 2.0 {
+					restart_timer = 0.0
+					init_world(&za_warudo, false)
+				}
+			} else {
+				if int(high_score) > int(old_high_score) || int(low_score) < int(old_low_score) {
+					old_high_score = high_score
+					old_low_score = low_score
+					new_record = true
+					save_high_score(high_score, low_score)
+				}
+				if restart_timer > TIME_TO_RESTART || (restart_timer > 1.0 && rl.GetKeyPressed() != rl.KeyboardKey.KEY_NULL) {
+					restart_timer = 0.0
+					score = 0
+					init_world(&za_warudo, true)
+				}
 			}
 		}
 
@@ -214,12 +234,12 @@ main :: proc() {
 		}
 		rl.DrawTexturePro(game_screen.texture, src, rl.Rectangle{0, 0, f32(game_screen.texture.width), f32(game_screen.texture.height)}, rl.Vector2{}, 0, rl.WHITE)
 
-		score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d", int(score), int(high_score))
+		score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d ШOЯST: %04d", int(score), int(high_score), int(low_score))
 		c_score_text := strings.clone_to_cstring(score_text, context.temp_allocator)
-		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.35, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
-		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.35, 4}, 32, 0.0, rl.GREEN)
+		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
+		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 4}, 32, 0.0, rl.GREEN)
 
-		if za_warudo.game_lost {
+		if za_warudo.game_lost && !za_warudo.heaven {
 			LOSE_MSG :: "THOЦ HAST PEЯISHEД"
 			shadow_pos := rl.Vector2{WINDOW_WIDTH / 4, 3 * WINDOW_HEIGHT / 8 }
 			t := f32(rl.GetTime()) * 100.0
@@ -246,10 +266,11 @@ draw_drop_shadow :: proc(drop_shadow: DropShadow) {
 	rl.DrawEllipse(cast(i32)x, cast(i32)y, 8.0 * drop_shadow.scale, 4.0 * drop_shadow.scale, rl.Color{0, 0, 0, 128})
 }
 
-load_high_score :: proc() -> (high_score: f32) {
+load_high_score :: proc() -> (high_score, low_score: f32) {
 	file, err := os.open(HIGH_SCORE_FILE_NAME)
 	if err != nil {
-		if general_err, is_general := err.(os.General_Error); !is_general || general_err != .Not_Exist {
+		general_err, is_general := err.(os.General_Error)
+		if (!is_general && err != .ENOENT) || general_err != .Not_Exist {
 			fmt.printfln("Error reading high score from file: %v.", os.error_string(err))
 		}
 		return
@@ -269,19 +290,30 @@ load_high_score :: proc() -> (high_score: f32) {
 		return
 	}
 
+	low_score, succ = endian.get_f32(data[4:], .Little)
+	if !succ {
+		fmt.printfln("The low score is not a float!?")
+		return
+	}
+
 	return
 }
 
-save_high_score :: proc(high_score: f32) {
-	file, err := os.open(HIGH_SCORE_FILE_NAME, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
+save_high_score :: proc(high_score, low_score: f32) {
+	mode: int
+	when ODIN_OS != .Windows {
+		mode = os.S_IRUSR|os.S_IWUSR|os.S_IRGRP|os.S_IROTH
+	}
+	file, err := os.open(HIGH_SCORE_FILE_NAME, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, mode)
 	if err != nil {
 		fmt.printfln("Error opening high score file for writing: %v.", os.error_string(err))
 		return
 	}
 	defer os.close(file)
 
-	bytes: [4]u8
-	endian.put_f32(bytes[:], .Little, high_score)
+	bytes: [8]u8
+	endian.put_f32(bytes[:4], .Little, high_score)
+	endian.put_f32(bytes[4:], .Little, low_score)
 
 	_, err = os.write(file, bytes[:])
 	if err != nil {
