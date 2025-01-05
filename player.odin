@@ -9,7 +9,7 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     JUMP_FORCE :: 12.0
     REGULAR_SPEED :: 11.0
     MAX_SPEED :: 16.0
-    FWD_ACCEL :: 10.0
+    FWD_ACCEL :: 15.0
     FRICTION :: 20.0
     
     update_ent(player, world, delta_time)
@@ -49,7 +49,11 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     
         trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.GetGamepadButtonPressed() == .RIGHT_FACE_DOWN)
     
-        if .Bottom in player.touch_flags {
+        moon_jump := false
+        when ODIN_DEBUG {
+            if rl.IsKeyDown(.TAB) do moon_jump = true
+        }
+        if .Bottom in player.touch_flags || moon_jump {
             if trynna_jump {
                 player.vel.y = JUMP_FORCE
                 rl.PlaySound(assets.Sounds[.Jump])

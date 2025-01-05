@@ -1,5 +1,3 @@
 - Make more chunks
   - Moving platforms?
-- Progressive difficulty
-  - Done through adjusting spawn rates for various hazards
-- Instructions / Splash screen
+- Attempt to port to web

@@ -58,17 +58,20 @@ World :: struct {
     ents: [dynamic]Ent,
     heaven: bool,
     camera: rl.Camera2D,
-    distance_traveled: f32,
+    distance_traveled: f32, // Map units moved since this realm has been entered 
+    total_distance_traveled: f32, // Map units moved since beginning of the player's life
     game_lost, heaven_transition: bool,
 }
 
 init_world :: proc(world: ^World, heaven: bool) {
+    if world == nil do return
     if world.ents != nil {
         delete(world.ents)
     }
 
     world^ = {
         heaven = heaven,
+        total_distance_traveled = 0.0 if world.game_lost && heaven else world.total_distance_traveled,
     }
     chunks_arr := assets.HeavenChunks if heaven else assets.HellChunks
     world.chunks[0].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
@@ -76,8 +79,8 @@ init_world :: proc(world: ^World, heaven: bool) {
 	world.ents = make([dynamic]Ent, 0, 100)
 	load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
     load_next_chunk(world, 1, 0)
-	load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
-	// load_next_chunk(world, 2, 4)
+    load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
+    
 
 	world.camera = rl.Camera2D{
 		offset = rl.Vector2{WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2},
@@ -141,11 +144,14 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     if (player_ent == nil || player_ent.pos.z > 6.0) && !world.heaven_transition {
         distance_gained = SCROLL_SPEED * delta_time
         world.distance_traveled += distance_gained
+        world.total_distance_traveled += distance_gained
+        //fmt.println("Total distance traveled:", world.total_distance_traveled)
     }
     when ODIN_DEBUG {
         if rl.IsKeyDown(.GRAVE) {
             // Stop the movement of the player and the camera in order to inspect bugs
             world.distance_traveled -= distance_gained
+            world.total_distance_traveled -= distance_gained
             distance_gained = 0.0
             if player_ent != nil do player_ent.vel.z = 0.0
         }
@@ -201,6 +207,9 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
 }
 
 world_lose_game :: proc(world: ^World, call_loc := #caller_location, call_expr := #caller_expression) {
+    when ODIN_DEBUG {
+        if rl.IsKeyDown(.TAB) do return
+    }
     if world.game_lost do return
     fmt.println("Player died because ", call_loc, call_expr)
     world.game_lost = true
@@ -244,6 +253,11 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
         }
     }
 
+    should_spawn :: proc(distance_traveled, easy_rate, hard_rate: f32) -> bool {
+        adjusted_rate := linalg.lerp(min(easy_rate, hard_rate), max(easy_rate, hard_rate), abs(distance_traveled) / 3000.0)
+        return rand.float32() < adjusted_rate
+    }
+
     for te3_ent in te3_map.ents {
         name, has_name := te3_ent.properties["name"]
         if !has_name do continue
@@ -251,7 +265,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
         switch name {
         case "shallot":
             // Spawn shallot
-            if world.distance_traveled > CHUNK_LENGTH * 2 && rand.float32() < 0.50 {
+            if world.distance_traveled > CHUNK_LENGTH * 2 && should_spawn(world.total_distance_traveled, 0.7, 0.25) {
                 append(&world.ents, Ent{
                     pos = spawn_pos,
                     extents = rl.Vector3{0.5, 64.0, 0.5},
@@ -263,6 +277,8 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
                 })
             }
         case "fire":
+            if !should_spawn(world.total_distance_traveled, 0.1, 1.5) do break
+
             // Spawn fire
             yaw := linalg.to_radians(te3_ent.angles[1])
             fire := Ent{
@@ -285,22 +301,22 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
         case "spike":
             // Spawn spike entity (used to display outlines when spike tiles are behind walls)
             spike := Ent{
-                pos = spawn_pos,
+                pos = spawn_pos - rl.Vector3{0.5, 0.5, 0.5},
                 tex = assets.Gfx[.SpikeOutline],
-                sprite_origin = rl.Vector2{8.0, 8.0},
+                sprite_origin = rl.Vector2{0.0, 24.0},
                 needs_outline = true,
                 variant = .Decoration,
             }
             append(&world.ents, spike)
         case "lightning":
-            if rand.float32() < 0.50 do break
+            if !should_spawn(world.total_distance_traveled, 0.1, 1.0) do break
             lightning := Ent{
                 pos = spawn_pos + rl.Vector3{0.0, 50.0, 0.0},
                 tex = assets.Gfx[.Lightning],
                 anim_player = assets.AnimPlayer{
                     anims = &assets.Anims[.Lightning],
                 },
-                sprite_origin = rl.Vector2{8.0, 360.0},
+                sprite_origin = rl.Vector2{8.0, 424.0},
                 extents = rl.Vector3{0.5, 64.0, 0.5},
                 update_func = update_lightning,
                 needs_outline = false,

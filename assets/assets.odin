@@ -14,6 +14,7 @@ GfxId :: enum {
     Fire,
     SpikeOutline,
     Lightning,
+    Logo,
 }
 
 SoundId :: enum {
@@ -37,7 +38,7 @@ HeavenChunks, HellChunks: [dynamic]Te3Map
 HudFont: rl.Font
 
 asset_arena: mem.Arena
-asset_memory: [500_000]u8
+asset_memory: [1_000_000]u8
 
 load :: proc() {
     mem.arena_init(&asset_arena, asset_memory[:])
@@ -56,6 +57,7 @@ load :: proc() {
         .Fire = tex_from_bytes(#load("gfx/fire.png")),
         .SpikeOutline = tex_from_bytes(#load("gfx/spike_outline.png")),
         .Lightning = tex_from_bytes(#load("gfx/lightning.png")),
+        .Logo = tex_from_bytes(#load("gfx/logo.png")),
     }
 
     sound_from_bytes :: proc(bytes: []u8) -> rl.Sound {

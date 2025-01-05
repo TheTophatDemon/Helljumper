@@ -86,6 +86,7 @@ main :: proc() {
 	restart_timer: f32
 	global_timer: f32
 	bg_color: rl.Color = HEAVEN_BG_COLOR
+	see_instructions: bool = true
 
 	curr_song = assets.Songs[.TheLonging]
 	next_song = curr_song
@@ -110,34 +111,40 @@ main :: proc() {
 
 		global_timer += delta_time
 
-		score = update_world(&za_warudo, delta_time, score)
-		if int(score) > int(high_score) {
-			high_score = score
-		}
-		if int(score) < int(low_score) {
-			low_score = score
-		}
-		if za_warudo.game_lost {
-			restart_timer += delta_time
-			if za_warudo.heaven {
-				// When you die in heaven, you just go to hell.
-				if restart_timer > TIME_TO_RESTART / 2.0 {
-					restart_timer = 0.0
-					init_world(&za_warudo, false)
-				}
-			} else {
-				if int(high_score) > int(old_high_score) || int(low_score) < int(old_low_score) {
-					old_high_score = high_score
-					old_low_score = low_score
-					new_record = true
-					save_high_score(high_score, low_score)
-				}
-				if restart_timer > TIME_TO_RESTART || (restart_timer > 1.0 && rl.GetKeyPressed() != rl.KeyboardKey.KEY_NULL) {
-					restart_timer = 0.0
-					score = 0
-					init_world(&za_warudo, true)
+		pressing_any_button := rl.GetKeyPressed() != .KEY_NULL || (rl.IsGamepadAvailable(0) && rl.GetGamepadButtonPressed() != .UNKNOWN)
+
+		if !see_instructions {
+			score = update_world(&za_warudo, delta_time, score)
+			if int(score) > int(high_score) {
+				high_score = score
+			}
+			if int(score) < int(low_score) {
+				low_score = score
+			}
+			if za_warudo.game_lost {
+				restart_timer += delta_time
+				if za_warudo.heaven {
+					// When you die in heaven, you just go to hell.
+					if restart_timer > TIME_TO_RESTART / 2.0 {
+						restart_timer = 0.0
+						init_world(&za_warudo, false)
+					}
+				} else {
+					if int(high_score) > int(old_high_score) || int(low_score) < int(old_low_score) {
+						old_high_score = high_score
+						old_low_score = low_score
+						new_record = true
+						save_high_score(high_score, low_score)
+					}
+					if restart_timer > TIME_TO_RESTART || (restart_timer > 1.0 && pressing_any_button) {
+						restart_timer = 0.0
+						score = 0
+						init_world(&za_warudo, true)
+					}
 				}
 			}
+		} else if pressing_any_button && global_timer > 0.5 {
+			see_instructions = false
 		}
 
 		rl.BeginDrawing()
@@ -233,21 +240,41 @@ main :: proc() {
 			height = f32(-game_screen.texture.height)
 		}
 		rl.DrawTexturePro(game_screen.texture, src, rl.Rectangle{0, 0, f32(game_screen.texture.width), f32(game_screen.texture.height)}, rl.Vector2{}, 0, rl.WHITE)
+		
+		if see_instructions {
+			rl.DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, rl.Color{0, 0, 0, 128})
+			rl.DrawTextEx(assets.HudFont, 
+				"A and D or LEFT JOYSTICK - Strafe\n" + 
+				"SPACE, Z or XBOX A - Jump. Hold to jump higher\n" +
+				"Hold SHIFT or LEFT TRIGGER - Run\n\n" +
+				"Run as far as you can through Heaven and\n" +
+				"Stay out of Hell!",
+				rl.Vector2{WINDOW_WIDTH * 0.3, WINDOW_HEIGHT * 0.3},
+				24, 0.0,
+				rl.GREEN,
+			)
 
-		score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d ШOЯST: %04d", int(score), int(high_score), int(low_score))
-		c_score_text := strings.clone_to_cstring(score_text, context.temp_allocator)
-		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
-		rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 4}, 32, 0.0, rl.GREEN)
+			if math.mod(global_timer, 1.0) > 0.25 {
+				rl.DrawTextEx(assets.HudFont, "Press any button to begin!", rl.Vector2{WINDOW_WIDTH * 0.35, 3.0 * WINDOW_HEIGHT / 4.0}, 24, 1.0, rl.YELLOW)
+			}
 
-		if za_warudo.game_lost && !za_warudo.heaven {
-			LOSE_MSG :: "THOЦ HAST PEЯISHEД"
-			shadow_pos := rl.Vector2{WINDOW_WIDTH / 4, 3 * WINDOW_HEIGHT / 8 }
-			t := f32(rl.GetTime()) * 100.0
-			rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos - rl.Vector2{2.0 + math.cos(t * 10.0), 1.0 - math.sin(t / 2.0)}, 72, 4.0, rl.BLACK)
-			rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos + rl.Vector2{2.0 + math.sin(t), 2.0 + math.cos(t)}, 72, 4.0, rl.RED)
-			if new_record && (int(t) % 100) > 25 { 
-				RECORD_MSG :: "ШITH A NEШ ЯECOЯД!"
-				rl.DrawTextEx(assets.HudFont, RECORD_MSG, shadow_pos + rl.Vector2{192.0, 82.0}, 32, 1.0, rl.YELLOW)
+			rl.DrawTexture(assets.Gfx[.Logo], WINDOW_WIDTH - 320, WINDOW_HEIGHT - 320, rl.WHITE)
+		} else {
+			score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d ШOЯST: %04d", int(score), int(high_score), int(low_score))
+			c_score_text := strings.clone_to_cstring(score_text, context.temp_allocator)
+			rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
+			rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 4}, 32, 0.0, rl.GREEN)
+	
+			if za_warudo.game_lost && !za_warudo.heaven {
+				LOSE_MSG :: "THOЦ HAST PEЯISHEД"
+				shadow_pos := rl.Vector2{WINDOW_WIDTH / 4, 3 * WINDOW_HEIGHT / 8 }
+				t := f32(rl.GetTime()) * 100.0
+				rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos - rl.Vector2{2.0 + math.cos(t * 10.0), 1.0 - math.sin(t / 2.0)}, 72, 4.0, rl.BLACK)
+				rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos + rl.Vector2{2.0 + math.sin(t), 2.0 + math.cos(t)}, 72, 4.0, rl.RED)
+				if new_record && (int(t) % 100) > 25 { 
+					RECORD_MSG :: "ШITH A NEШ ЯECOЯД!"
+					rl.DrawTextEx(assets.HudFont, RECORD_MSG, shadow_pos + rl.Vector2{192.0, 82.0}, 32, 1.0, rl.YELLOW)
+				}
 			}
 		}
 
