@@ -3,6 +3,7 @@ package assets
 import "core:fmt"
 import "core:mem"
 import "core:encoding/json"
+import "core:strconv"
 import "base:runtime"
 
 import rl "vendor:raylib"
@@ -30,11 +31,16 @@ SongId :: enum {
     TheLonging,
 }
 
+ChunkInfo :: struct {
+    te3_map: Te3Map,
+    distance_threshold: f32, // The total distance traveled after which this chunk should start appearing.
+}
+
 Gfx: [GfxId]rl.Texture2D
 Sounds: [SoundId]rl.Sound
 Songs: [SongId]rl.Music
 Anims: [GfxId]AnimSet
-HeavenChunks, HellChunks: [dynamic]Te3Map
+HeavenChunks, HellChunks: [dynamic]ChunkInfo
 HudFont: rl.Font
 
 asset_arena: mem.Arena
@@ -99,24 +105,35 @@ load :: proc() {
     heaven_chunk_files := #load_directory("chunks/heaven")
     hell_chunk_files := #load_directory("chunks/hell")
 
-    load_chunk :: proc(file: runtime.Load_Directory_File, arr: ^[dynamic]Te3Map) -> Te3Map {
+    load_chunk :: proc(file: runtime.Load_Directory_File, arr: ^[dynamic]ChunkInfo) {
         te3_map: Te3Map
         err := json.unmarshal(file.data, &te3_map)
         if err != nil {
             fmt.printfln(`Error! Could not load TE3 map at "%v"`, file.name)
         } else {
-            append(arr, te3_map)
+            chunk_info := ChunkInfo{
+                te3_map = te3_map,
+            }
+
+            for ent in te3_map.ents {
+                if ent.properties["name"] != "meta" do continue
+                if dist_str, ok := ent.properties["distance threshold"]; ok {
+                    chunk_info.distance_threshold, ok = strconv.parse_f32(dist_str)
+                    if !ok do fmt.println(`Error parsing level chunk at "%v": Could not parse meta entity distance threshold.`)
+                }
+            }
+
+            append(arr, chunk_info)
             fmt.printfln(`Loaded chunk file at "%v".`, file.name)
         }
-        return te3_map
     }
 
-    HeavenChunks = make([dynamic]Te3Map, 0, len(heaven_chunk_files))
+    HeavenChunks = make([dynamic]ChunkInfo, 0, len(heaven_chunk_files))
     for file in heaven_chunk_files {
         load_chunk(file, &HeavenChunks)
     }
 
-    HellChunks = make([dynamic]Te3Map, 0, len(hell_chunk_files))
+    HellChunks = make([dynamic]ChunkInfo, 0, len(hell_chunk_files))
     for file in hell_chunk_files {
         load_chunk(file, &HellChunks)
     }

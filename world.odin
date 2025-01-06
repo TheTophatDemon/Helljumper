@@ -77,9 +77,9 @@ init_world :: proc(world: ^World, heaven: bool) {
     world.chunks[0].pos = rl.Vector3{0.0, 0.0, -CHUNK_LENGTH}
 	world.chunks[2].pos = rl.Vector3{0.0, 0.0, CHUNK_LENGTH}
 	world.ents = make([dynamic]Ent, 0, 100)
-	load_next_chunk(world, 0, rand.int_max(len(chunks_arr)))
+	load_next_chunk(world, 0)
     load_next_chunk(world, 1, 0)
-    load_next_chunk(world, 2, rand.int_max(len(chunks_arr)))
+    load_next_chunk(world, 2)
     
 
 	world.camera = rl.Camera2D{
@@ -229,9 +229,17 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
 
     te3_map: assets.Te3Map
     if asset_idx >= 0 {
-        te3_map = chunk_arr[asset_idx]
+        te3_map = chunk_arr[asset_idx].te3_map
     } else {
-        te3_map = rand.choice(chunk_arr[:])
+        pickable_indices := make([dynamic]int, 0, len(chunk_arr))
+        defer delete(pickable_indices)
+
+        for &chunk_info, idx in chunk_arr {
+            if world.total_distance_traveled < chunk_info.distance_threshold do continue
+            append(&pickable_indices, idx)
+        }
+
+        te3_map = chunk_arr[rand.choice(pickable_indices[:])].te3_map
     }
 
     te3_tiles := assets.load_tile_grid_from_te3_map(&te3_map)

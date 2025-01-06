@@ -22,7 +22,7 @@ HEAVEN_BG_COLOR :: rl.Color{0, 64, 200, 255}
 HELL_BG_COLOR :: rl.Color{115, 23, 45, 255}
 
 when ODIN_DEBUG {
-	MUSIC_VOLUME: f32 : 1.0
+	MUSIC_VOLUME: f32 : 0.1
 } else {
 	MUSIC_VOLUME: f32 : 1.0
 }
