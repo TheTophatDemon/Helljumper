@@ -294,12 +294,10 @@ draw_drop_shadow :: proc(drop_shadow: DropShadow) {
 }
 
 load_high_score :: proc() -> (high_score, low_score: f32) {
+	if !os.exists(HIGH_SCORE_FILE_NAME) do return
 	file, err := os.open(HIGH_SCORE_FILE_NAME)
 	if err != nil {
-		general_err, is_general := err.(os.General_Error)
-		if (!is_general && err != .ENOENT) || general_err != .Not_Exist {
-			fmt.printfln("Error reading high score from file: %v.", os.error_string(err))
-		}
+		fmt.printfln("Error reading high score from file: %v.", os.error_string(err))
 		return
 	}
 	defer os.close(file)
