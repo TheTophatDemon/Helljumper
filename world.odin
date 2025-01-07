@@ -8,6 +8,7 @@ import "core:fmt"
 import "core:slice"
 import "core:math/linalg"
 import "core:math"
+import "core:strings"
 
 import "assets"
 
@@ -18,6 +19,7 @@ CHUNK_COUNT :: 3 // Number of chunks loaded at any one time.
 TILE_SPACING_HORZ :: 16
 TILE_SPACING_VERT :: 8
 KILL_PLANE_OFFSET :: 20.0
+TILE_MOVE_INTERVAL :: 0.5 // Number of seconds it takes a moving tile to go 1 unit
 
 TileType :: enum u8 {
 	Empty,
@@ -29,18 +31,26 @@ TileType :: enum u8 {
     HellBridge,
     Rock,
     LavaRock,
+    ArrowN,
+    ArrowE,
+    ArrowS,
+    ArrowW,
 }
 
 TileRects := [TileType]rl.Rectangle{
-	.Empty = rl.Rectangle{},
-	.Solid = rl.Rectangle{0, 0, 32, 32},
-    .Cloud = rl.Rectangle{32, 0, 32, 32},
-    .Pillar = rl.Rectangle{64, 0, 32, 32},
-    .Bridge = rl.Rectangle{64+32, 0, 32, 32},
-    .Spike = rl.Rectangle{0, 32, 32, 32},
-    .HellBridge = rl.Rectangle{32, 32, 32, 32},
-    .Rock = rl.Rectangle{64, 32, 32, 32},
-    .LavaRock = rl.Rectangle{96, 32, 32, 32},
+    .Empty      = {},
+    .Solid      = {0, 0, 32, 32},
+    .Cloud      = {32, 0, 32, 32},
+    .Pillar     = {64, 0, 32, 32},
+    .Bridge     = {96, 0, 32, 32},
+    .Spike      = {0, 32, 32, 32},
+    .HellBridge = {32, 32, 32, 32},
+    .Rock       = {64, 32, 32, 32},
+    .LavaRock   = {96, 32, 32, 32},
+    .ArrowN     = {0, 64, 32, 32},
+    .ArrowE     = {32, 64, 32, 32},
+    .ArrowS     = {64, 64, 32, 32},
+    .ArrowW     = {96, 64, 32, 32},
 }
 
 Chunk :: struct {
@@ -61,6 +71,7 @@ World :: struct {
     distance_traveled: f32, // Map units moved since this realm has been entered 
     total_distance_traveled: f32, // Map units moved since beginning of the player's life
     game_lost, heaven_transition: bool,
+    tile_timer: f32,
 }
 
 init_world :: proc(world: ^World, heaven: bool) {
@@ -80,6 +91,7 @@ init_world :: proc(world: ^World, heaven: bool) {
 	load_next_chunk(world, 0)
     load_next_chunk(world, 1, 0)
     load_next_chunk(world, 2)
+    // if heaven do load_next_chunk(world, 2, 9); else do load_next_chunk(world, 2)
     
 
 	world.camera = rl.Camera2D{
@@ -114,6 +126,66 @@ init_world :: proc(world: ^World, heaven: bool) {
 update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: f32) {
     SCROLL_SPEED :: 14.0
     
+    
+    // Scroll moving tiles
+    world.tile_timer += delta_time
+    if world.tile_timer > TILE_MOVE_INTERVAL {
+        world.tile_timer = 0.0
+        for &chunk in world.chunks {
+            for y in 0..<CHUNK_HEIGHT {
+                for z in 0..<CHUNK_LENGTH {
+                    // West arrow
+                    for x in 0..<CHUNK_WIDTH {
+                        if chunk.tiles[y][z][x] == .ArrowW {
+                            next_x := (x + CHUNK_WIDTH - 1) % CHUNK_WIDTH
+                            next_tile := chunk.tiles[y][z][next_x]
+                            if next_tile == .Empty {
+                                chunk.tiles[y][z][x] = .Empty
+                                chunk.tiles[y][z][next_x] = .ArrowW
+                            }
+                        }
+                    }
+
+                    // East arrow
+                    for x := CHUNK_WIDTH - 1; x >= 0; x -= 1 {
+                        if chunk.tiles[y][z][x] == .ArrowE {
+                            next_x := (x + 1) % CHUNK_WIDTH
+                            next_tile := chunk.tiles[y][z][next_x]
+                            if next_tile == .Empty {
+                                chunk.tiles[y][z][x] = .Empty
+                                chunk.tiles[y][z][next_x] = .ArrowE
+                            }
+                        }
+                    }
+                }
+
+                // for x in 0..<CHUNK_WIDTH {
+                //     // North arrow
+                //     for z := CHUNK_LENGTH - 1; z >= 0; z -= 1 {
+                //         if chunk.tiles[y][z][x] == .ArrowN {
+                //             next_z := (z + 1) % CHUNK_LENGTH
+                //             next_tile := chunk.tiles[y][next_z][x]
+                //             if next_tile != .Empty {
+                //                 for next_z = z; next_z >= 0; next_z -= 1 {
+                //                     back_tile := chunk.tiles[y][next_z][x]
+                //                     if back_tile != .Empty && back_tile != .ArrowN {
+                //                         next_z += 1
+                //                         break
+                //                     }
+                //                 }
+                //                 if next_z == -1 {
+                //                     next_z = 0
+                //                 }
+                //             }
+                //             chunk.tiles[y][z][x] = .Empty
+                //             chunk.tiles[y][next_z][x] = .ArrowN
+                //         }
+                //     }
+                // }
+            }
+        }
+    }
+
     new_score = score
 
     player_z_before_update: f32
@@ -253,10 +325,21 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
             world.chunks[chunk_idx].tiles[y][z][x] = .Empty
         } else {
             tex_name := filepath.short_stem(te3_map.tiles.textures[tile.tex_id])
-            ok: bool
-            world.chunks[chunk_idx].tiles[y][z][x], ok = reflect.enum_from_name(TileType, tex_name)
-            if !ok {
-                fmt.printfln("Didn't find matching tile type for texture '%v'.", tex_name)
+            if tex_name == "Arrow" {
+                tile_type: TileType
+                switch tile.angle {
+                    case 0: tile_type = .ArrowS
+                    case 90: tile_type = .ArrowW
+                    case 180: tile_type = .ArrowN
+                    case 270: tile_type = .ArrowE
+                }
+                world.chunks[chunk_idx].tiles[y][z][x] = tile_type
+            } else {
+                ok: bool
+                world.chunks[chunk_idx].tiles[y][z][x], ok = reflect.enum_from_name(TileType, tex_name)
+                if !ok {
+                    fmt.printfln("Didn't find matching tile type for texture '%v'.", tex_name)
+                }
             }
         }
     }
@@ -317,7 +400,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
             }
             append(&world.ents, spike)
         case "lightning":
-            if !should_spawn(world.total_distance_traveled, 0.1, 1.0) do break
+            if !should_spawn(world.total_distance_traveled, -0.25, 1.0) do break
             lightning := Ent{
                 pos = spawn_pos + rl.Vector3{0.0, 50.0, 0.0},
                 tex = assets.Gfx[.Lightning],

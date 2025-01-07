@@ -90,3 +90,11 @@ anim_player_current_rect :: proc(player: ^AnimPlayer) -> rl.Rectangle {
         x = frame.rect.x, y = frame.rect.y, width = frame.rect.w, height = frame.rect.h,
     }
 }
+
+anim_player_change_anim :: proc(player: ^AnimPlayer, new_anim_idx: u16) {
+    if player == nil do return
+    if player.anim_idx != new_anim_idx {
+        player.frame_idx = 0
+    }
+    player.anim_idx = new_anim_idx
+}

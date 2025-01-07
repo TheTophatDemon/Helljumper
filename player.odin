@@ -15,10 +15,10 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     update_ent(player, world, delta_time)
 
     if world.game_lost {
-        player.anim_player.anim_idx = 4
+        assets.anim_player_change_anim(&player.anim_player, 4)
         player.vel.xz = {}
     } else if world.heaven_transition {
-        player.anim_player.anim_idx = 1
+        assets.anim_player_change_anim(&player.anim_player, 1)
         player.vel.y -= player.gravity * 2.0 * delta_time
         player.extents = {}
         for &ent in world.ents {
@@ -60,20 +60,20 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
             }
             if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
                 player.max_speed = MAX_SPEED
-                player.anim_player.anim_idx = 3
+                assets.anim_player_change_anim(&player.anim_player, 3)
             } else {
                 player.max_speed = REGULAR_SPEED
-                player.anim_player.anim_idx = 0
+                assets.anim_player_change_anim(&player.anim_player, 0)
             }
         } else {
             if player.vel.y > 0.0 {
                 if .Top in player.touch_flags {
                     player.vel.y = 0.0
                 } else {
-                    player.anim_player.anim_idx = 1
+                    assets.anim_player_change_anim(&player.anim_player, 1)
                 }
             } else {
-                player.anim_player.anim_idx = 2
+                assets.anim_player_change_anim(&player.anim_player, 2)
             }
             if player.vel.y > 5.0 && !trynna_jump {
                 player.vel.y = 5.0

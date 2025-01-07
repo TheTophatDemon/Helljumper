@@ -1,3 +1,4 @@
 - Make more chunks
-  - Moving platforms?
+  - 4 more for heaven
+  - 6 more for hell
 - Attempt to port to web
