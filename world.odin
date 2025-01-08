@@ -400,7 +400,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
             }
             append(&world.ents, spike)
         case "lightning":
-            if !should_spawn(world.total_distance_traveled, -0.25, 1.0) do break
+            if !should_spawn(world.total_distance_traveled, -0.1, 1.0) do break
             lightning := Ent{
                 pos = spawn_pos + rl.Vector3{0.0, 50.0, 0.0},
                 tex = assets.Gfx[.Lightning],

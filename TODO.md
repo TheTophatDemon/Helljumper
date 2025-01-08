@@ -1,4 +1,6 @@
 - Make more chunks
-  - 4 more for heaven
-  - 6 more for hell
+  - 3 more for heaven
+  - 3 more for hell
+- Make north and south arrow blocks work
+- Pause
 - Attempt to port to web

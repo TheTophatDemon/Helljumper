@@ -93,6 +93,7 @@ main :: proc() {
 	song_volume := MUSIC_VOLUME
 	rl.PlayMusicStream(curr_song)
 	rl.SetMusicVolume(curr_song, song_volume)
+	when ODIN_DEBUG do rl.SetMasterVolume(0.5)
 
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
