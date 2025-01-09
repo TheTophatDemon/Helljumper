@@ -1,5 +1,4 @@
 - Make more chunks
-  - 3 more for heaven
-  - 3 more for hell
+  - 2 more for heaven
 - Pause
 - Attempt to port to web

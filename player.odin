@@ -11,6 +11,7 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     MAX_SPEED :: 16.0
     FWD_ACCEL :: 15.0
     FRICTION :: 20.0
+    SPRING_JUMP_FORCE :: JUMP_FORCE * 1.5
     
     update_ent(player, world, delta_time)
 
@@ -47,7 +48,8 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
         }
         if !world.heaven do player.vel.x = -player.vel.x
     
-        trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.GetGamepadButtonPressed() == .RIGHT_FACE_DOWN)
+        trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonPressed(0, .RIGHT_FACE_DOWN))
+        stopped_trynna_jump := rl.IsKeyReleased(.SPACE) || rl.IsKeyReleased(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonReleased(0, .RIGHT_FACE_DOWN))
     
         moon_jump := false
         when ODIN_DEBUG {
@@ -57,6 +59,10 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
             if trynna_jump {
                 player.vel.y = JUMP_FORCE
                 rl.PlaySound(assets.Sounds[.Jump])
+            }
+            if .Spring in player.touched_tiles {
+                player.vel.y = SPRING_JUMP_FORCE
+                rl.PlaySound(assets.Sounds[.Spring])
             }
             if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
                 player.max_speed = MAX_SPEED
@@ -75,7 +81,8 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
             } else {
                 assets.anim_player_change_anim(&player.anim_player, 2)
             }
-            if player.vel.y > 5.0 && !trynna_jump {
+            
+            if player.vel.y > 5.0 && stopped_trynna_jump {
                 player.vel.y = 5.0
             }
         }

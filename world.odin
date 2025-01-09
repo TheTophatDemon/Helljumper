@@ -35,6 +35,7 @@ TileType :: enum u8 {
     ArrowE,
     ArrowS,
     ArrowW,
+    Spring,
 }
 
 TileRects := [TileType]rl.Rectangle{
@@ -51,6 +52,7 @@ TileRects := [TileType]rl.Rectangle{
     .ArrowE     = {32, 64, 32, 32},
     .ArrowS     = {64, 64, 32, 32},
     .ArrowW     = {96, 64, 32, 32},
+    .Spring     = {0, 96, 32, 32},
 }
 
 // Specifies from which directions a collision can pass through a tile type.
@@ -103,7 +105,7 @@ init_world :: proc(world: ^World, heaven: bool) {
     load_next_chunk(world, 1, 0)
     load_next_chunk(world, 2)
     // if heaven do load_next_chunk(world, 2, 9); else do load_next_chunk(world, 2)
-    // if !heaven do load_next_chunk(world, 2, 5); else do load_next_chunk(world, 2)
+    // if !heaven do load_next_chunk(world, 2, 7); else do load_next_chunk(world, 2)
     
 
 	world.camera = rl.Camera2D{
