@@ -66,7 +66,8 @@ main :: proc() {
 
 	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Helljumper")
 	defer rl.CloseWindow()
-	rl.SetTargetFPS(60)
+	TARGET_FPS :: 60
+	rl.SetTargetFPS(TARGET_FPS)
 	rl.InitAudioDevice()
 	assets.load()
 	defer assets.unload()
@@ -97,7 +98,8 @@ main :: proc() {
 	
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
-		
+		if delta_time > 1.0 / TARGET_FPS do delta_time = 1.0 / TARGET_FPS // Prevents window moving from speeding up the game tick
+
 		rl.UpdateMusicStream(curr_song)
 		if next_song != curr_song {
 			song_volume -= delta_time

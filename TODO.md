@@ -2,5 +2,4 @@
   - 3 more for heaven
   - 3 more for hell
 - Pause
-- Make game not skip when moving window
 - Attempt to port to web
