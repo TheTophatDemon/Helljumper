@@ -22,7 +22,7 @@ HEAVEN_BG_COLOR :: rl.Color{0, 64, 200, 255}
 HELL_BG_COLOR :: rl.Color{115, 23, 45, 255}
 
 when ODIN_DEBUG {
-	MUSIC_VOLUME: f32 : 0.0
+	MUSIC_VOLUME: f32 : 1.0
 } else {
 	MUSIC_VOLUME: f32 : 1.0
 }
@@ -93,11 +93,11 @@ main :: proc() {
 	song_volume := MUSIC_VOLUME
 	rl.PlayMusicStream(curr_song)
 	rl.SetMusicVolume(curr_song, song_volume)
-	when ODIN_DEBUG do rl.SetMasterVolume(0.5)
-
+	// when ODIN_DEBUG do rl.SetMasterVolume(0.5)
+	
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
-
+		
 		rl.UpdateMusicStream(curr_song)
 		if next_song != curr_song {
 			song_volume -= delta_time

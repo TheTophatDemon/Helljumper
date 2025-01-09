@@ -110,7 +110,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         if x < 0 || x >= CHUNK_WIDTH do continue
                         for z in tile_min_z..=tile_max_z {
                             if z < 0 || z >= CHUNK_LENGTH do continue
-                            if tile := chunk.tiles[y][z][x]; tile != .Empty {
+                            if tile := chunk.tiles[y][z][x]; !(direction in TilePassThrough[tile]) {
                                 next := f32(z) - ent.extents.z
                                 ent.touch_flags |= {.Front}
                                 ent.touched_tiles += {tile}
@@ -127,7 +127,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         if x < 0 || x >= CHUNK_WIDTH do continue
                         for z in tile_min_z..=tile_max_z {
                             if z < 0 || z >= CHUNK_LENGTH do continue
-                            if tile := chunk.tiles[y][z][x]; tile != .Empty {
+                            if tile := chunk.tiles[y][z][x]; !(direction in TilePassThrough[tile]) {
                                 next := f32(y) + 1.0
                                 ent.touch_flags |= {.Bottom}
                                 ent.touched_tiles += {tile}
@@ -144,7 +144,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         if x < 0 || x >= CHUNK_WIDTH do continue
                         for z in tile_min_z..=tile_max_z {
                             if z < 0 || z >= CHUNK_LENGTH do continue
-                            if tile := chunk.tiles[y][z][x]; tile != .Empty {
+                            if tile := chunk.tiles[y][z][x]; !(direction in TilePassThrough[tile]) {
                                 next := f32(y) - ent.extents.y * 2.0
                                 ent.touch_flags |= {.Top}
                                 ent.touched_tiles += {tile}
@@ -161,7 +161,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         if z < 0 || z >= CHUNK_LENGTH do continue
                         for x := tile_max_x; x >= tile_min_x; x -= 1 {
                             if x < 0 || x >= CHUNK_WIDTH do continue
-                            if tile := chunk.tiles[y][z][x]; tile != .Empty {
+                            if tile := chunk.tiles[y][z][x]; !(direction in TilePassThrough[tile]) {
                                 next := f32(x) + 1.0 + ent.extents.x
                                 ent.touch_flags |= {.Left}
                                 ent.touched_tiles += {tile}
@@ -178,7 +178,7 @@ move_and_collide_ent :: proc(ent: ^Ent, world: ^World, from, to: f32, direction:
                         if z < 0 || z >= CHUNK_LENGTH do continue
                         for x in tile_min_x..=tile_max_x {
                             if x < 0 || x >= CHUNK_WIDTH do continue
-                            if tile := chunk.tiles[y][z][x]; tile != .Empty {
+                            if tile := chunk.tiles[y][z][x]; !(direction in TilePassThrough[tile]) {
                                 next := f32(x) - ent.extents.x - 0.01
                                 ent.touch_flags |= {.Right}
                                 ent.touched_tiles += {tile}

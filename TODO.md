@@ -1,6 +1,6 @@
 - Make more chunks
   - 3 more for heaven
   - 3 more for hell
-- Make north and south arrow blocks work
 - Pause
+- Make game not skip when moving window
 - Attempt to port to web

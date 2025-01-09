@@ -53,6 +53,17 @@ TileRects := [TileType]rl.Rectangle{
     .ArrowW     = {96, 64, 32, 32},
 }
 
+// Specifies from which directions a collision can pass through a tile type.
+// Tiles that are omitted are solid from all directions by default.
+TilePassThrough := #partial [TileType]bit_set[Touching] {
+    .Empty = ~{},
+    // You'll want to pass through the arrow tiles except from the top so you don't get stuck inside of them after they move.
+    .ArrowN = ~{ .Bottom },
+    .ArrowS = ~{ .Bottom },
+    .ArrowE = ~{ .Bottom },
+    .ArrowW = ~{ .Bottom },
+}
+
 Chunk :: struct {
     tiles: [CHUNK_HEIGHT][CHUNK_LENGTH][CHUNK_WIDTH]TileType,
     pos: rl.Vector3, // Bottom back left corner
@@ -92,6 +103,7 @@ init_world :: proc(world: ^World, heaven: bool) {
     load_next_chunk(world, 1, 0)
     load_next_chunk(world, 2)
     // if heaven do load_next_chunk(world, 2, 9); else do load_next_chunk(world, 2)
+    // if !heaven do load_next_chunk(world, 2, 5); else do load_next_chunk(world, 2)
     
 
 	world.camera = rl.Camera2D{
@@ -131,58 +143,55 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
     world.tile_timer += delta_time
     if world.tile_timer > TILE_MOVE_INTERVAL {
         world.tile_timer = 0.0
+
+        TileEdit :: struct {
+            chunk: ^Chunk,
+            pos: [3]int, // X, Y, Z of tile in grid
+            tile: TileType,
+        }
+        tile_edits := make([dynamic]TileEdit, 0, len(world.chunks) * CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH / 4)
+        defer delete(tile_edits)
+
+        // First we evaluate how each tile should modify the grid without moving it.
+        // This prevents the movement of one tile from interfering with the movement logic of its neighbors.
         for &chunk in world.chunks {
             for y in 0..<CHUNK_HEIGHT {
                 for z in 0..<CHUNK_LENGTH {
-                    // West arrow
                     for x in 0..<CHUNK_WIDTH {
-                        if chunk.tiles[y][z][x] == .ArrowW {
-                            next_x := (x + CHUNK_WIDTH - 1) % CHUNK_WIDTH
-                            next_tile := chunk.tiles[y][z][next_x]
-                            if next_tile == .Empty {
-                                chunk.tiles[y][z][x] = .Empty
-                                chunk.tiles[y][z][next_x] = .ArrowW
-                            }
-                        }
-                    }
+                        tile := chunk.tiles[y][z][x]
+                        if !(tile in bit_set[TileType]{.ArrowW, .ArrowE, .ArrowS, .ArrowN}) do continue
 
-                    // East arrow
-                    for x := CHUNK_WIDTH - 1; x >= 0; x -= 1 {
-                        if chunk.tiles[y][z][x] == .ArrowE {
-                            next_x := (x + 1) % CHUNK_WIDTH
-                            next_tile := chunk.tiles[y][z][next_x]
-                            if next_tile == .Empty {
-                                chunk.tiles[y][z][x] = .Empty
-                                chunk.tiles[y][z][next_x] = .ArrowE
-                            }
+                        // Insert the next tile
+                        next_pos := [3]int{x, y, z}
+                        #partial switch tile {
+                        case .ArrowW: next_pos.x = (x + CHUNK_WIDTH - 1) % CHUNK_WIDTH
+                        case .ArrowE: next_pos.x = (x + 1) % CHUNK_WIDTH
+                        case .ArrowN: next_pos.z = (z + 1) % CHUNK_LENGTH
+                        case .ArrowS: next_pos.z = (z + CHUNK_LENGTH - 1) % CHUNK_LENGTH
+                        }
+                        if chunk.tiles[next_pos.y][next_pos.z][next_pos.x] == .Empty {
+                            append(&tile_edits, TileEdit{ chunk = &chunk, pos = next_pos, tile = tile })
+                        }
+
+                        // Clear previous tile
+                        prev_pos := [3]int{x, y, z}
+                        #partial switch tile {
+                        case .ArrowW: prev_pos.x = (x + 1) % CHUNK_WIDTH
+                        case .ArrowE: prev_pos.x = (x + CHUNK_WIDTH - 1) % CHUNK_WIDTH
+                        case .ArrowN: prev_pos.z = (z + CHUNK_LENGTH - 1) % CHUNK_LENGTH
+                        case .ArrowS: prev_pos.z = (z + 1) % CHUNK_LENGTH
+                        }
+                        if chunk.tiles[prev_pos.y][prev_pos.z][prev_pos.x] == .Empty {
+                            append(&tile_edits, TileEdit{ chunk = &chunk, pos = { x, y, z }, tile = .Empty })
                         }
                     }
                 }
-
-                // for x in 0..<CHUNK_WIDTH {
-                //     // North arrow
-                //     for z := CHUNK_LENGTH - 1; z >= 0; z -= 1 {
-                //         if chunk.tiles[y][z][x] == .ArrowN {
-                //             next_z := (z + 1) % CHUNK_LENGTH
-                //             next_tile := chunk.tiles[y][next_z][x]
-                //             if next_tile != .Empty {
-                //                 for next_z = z; next_z >= 0; next_z -= 1 {
-                //                     back_tile := chunk.tiles[y][next_z][x]
-                //                     if back_tile != .Empty && back_tile != .ArrowN {
-                //                         next_z += 1
-                //                         break
-                //                     }
-                //                 }
-                //                 if next_z == -1 {
-                //                     next_z = 0
-                //                 }
-                //             }
-                //             chunk.tiles[y][z][x] = .Empty
-                //             chunk.tiles[y][next_z][x] = .ArrowN
-                //         }
-                //     }
-                // }
             }
+        }
+
+        // Apply the tile movement
+        for edit in tile_edits {
+            edit.chunk.tiles[edit.pos.y][edit.pos.z][edit.pos.x] = edit.tile
         }
     }
 
