@@ -36,6 +36,9 @@ TileType :: enum u8 {
     ArrowS,
     ArrowW,
     Spring,
+    ExtendedSpring,
+    Marble,
+    Eye,
 }
 
 TileRects := [TileType]rl.Rectangle{
@@ -53,6 +56,9 @@ TileRects := [TileType]rl.Rectangle{
     .ArrowS     = {64, 64, 32, 32},
     .ArrowW     = {96, 64, 32, 32},
     .Spring     = {0, 96, 32, 32},
+    .ExtendedSpring = {32, 96, 32, 32},
+    .Marble = {64, 96, 32, 32},
+    .Eye = {96, 96, 32, 32},
 }
 
 // Specifies from which directions a collision can pass through a tile type.
@@ -64,6 +70,18 @@ TilePassThrough := #partial [TileType]bit_set[Touching] {
     .ArrowS = ~{ .Bottom },
     .ArrowE = ~{ .Bottom },
     .ArrowW = ~{ .Bottom },
+}
+
+// Indicates which tiles won't block visibility of tiles behind them.
+TileTransparent := #partial [TileType]bool {
+    .Empty = true,
+    .Spring = true,
+    .ExtendedSpring = true,
+    .HellBridge = true,
+    .Bridge = true,
+    .Eye = true,
+    .Pillar = true,
+    .Spike = true,
 }
 
 Chunk :: struct {
@@ -105,7 +123,7 @@ init_world :: proc(world: ^World, heaven: bool) {
     load_next_chunk(world, 1, 0)
     load_next_chunk(world, 2)
     // if heaven do load_next_chunk(world, 2, 9); else do load_next_chunk(world, 2)
-    // if !heaven do load_next_chunk(world, 2, 7); else do load_next_chunk(world, 2)
+    // if !heaven do load_next_chunk(world, 2, 8); else do load_next_chunk(world, 2)
     
 
 	world.camera = rl.Camera2D{
@@ -138,9 +156,6 @@ init_world :: proc(world: ^World, heaven: bool) {
 }
 
 update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: f32) {
-    SCROLL_SPEED :: 14.0
-    
-    
     // Scroll moving tiles
     world.tile_timer += delta_time
     if world.tile_timer > TILE_MOVE_INTERVAL {
@@ -214,7 +229,7 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
         }
     }
 
-    // Must do this after entities are removed in case player gets shifted around in the array.
+    // Must assign player pointer after entities are removed in case player gets shifted around in the array.
     player_ent: ^Ent
     for &ent in world.ents {
         if ent.variant == .Player {
@@ -223,9 +238,16 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
         }
     }
     
+    // Scroll camera
+    scroll_speed: f32
+    if world.total_distance_traveled < 1000 {
+        scroll_speed = linalg.lerp(f32(12.0), 14.0, world.total_distance_traveled / 1000.0)
+    } else {
+        scroll_speed = linalg.lerp(f32(14.0), 15.0, (world.total_distance_traveled - 1000.0) / 2000.0)
+    }
     distance_gained: f32
     if (player_ent == nil || player_ent.pos.z > 6.0) && !world.heaven_transition {
-        distance_gained = SCROLL_SPEED * delta_time
+        distance_gained = scroll_speed * delta_time
         world.distance_traveled += distance_gained
         world.total_distance_traveled += distance_gained
         //fmt.println("Total distance traveled:", world.total_distance_traveled)

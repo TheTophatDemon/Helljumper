@@ -45,7 +45,7 @@ HeavenChunks, HellChunks: [dynamic]ChunkInfo
 HudFont: rl.Font
 
 asset_arena: mem.Arena
-asset_memory: [1_000_000]u8
+asset_memory: [1_500_000]u8
 
 load :: proc() {
     mem.arena_init(&asset_arena, asset_memory[:])

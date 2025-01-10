@@ -116,7 +116,7 @@ main :: proc() {
 
 		pressing_any_button := rl.GetKeyPressed() != .KEY_NULL || (rl.IsGamepadAvailable(0) && rl.GetGamepadButtonPressed() != .UNKNOWN)
 
-		if !see_instructions {
+		if !see_instructions && rl.IsWindowFocused() {
 			score = update_world(&za_warudo, delta_time, score)
 			if int(score) > int(high_score) {
 				high_score = score
@@ -181,9 +181,9 @@ main :: proc() {
 						if x < CHUNK_WIDTH - 1 && 
 							y < CHUNK_HEIGHT - 1 && 
 							z > 0 &&
-							chunk.tiles[y + 1][z][x] != .Empty &&
-							chunk.tiles[y][z - 1][x] != .Empty &&
-							chunk.tiles[y][z][x + 1] != .Empty
+							!TileTransparent[chunk.tiles[y + 1][z][x]] &&
+							!TileTransparent[chunk.tiles[y][z - 1][x]] &&
+							!TileTransparent[chunk.tiles[y][z][x + 1]]
 						{
 							// Don't render tiles that are completely obscured.
 							continue
@@ -251,7 +251,8 @@ main :: proc() {
 				"SPACE, Z or XBOX A - Jump. Hold to jump higher\n" +
 				"Hold SHIFT or LEFT TRIGGER - Run\n\n" +
 				"Run as far as you can through Heaven and\n" +
-				"Stay out of Hell!",
+				"Stay out of Hell! Use the giant shallots \n" + 
+				"to return from there.",
 				rl.Vector2{WINDOW_WIDTH * 0.3, WINDOW_HEIGHT * 0.3},
 				24, 0.0,
 				rl.GREEN,

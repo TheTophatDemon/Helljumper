@@ -63,6 +63,19 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
             if .Spring in player.touched_tiles {
                 player.vel.y = SPRING_JUMP_FORCE
                 rl.PlaySound(assets.Sounds[.Spring])
+
+                // Change spring tile to show it's been touched
+                for &chunk in containing_chunks(world, ent_bbox(player)) {
+                    tile_x := int(player.pos.x - chunk.pos.x)
+                    tile_y := int(player.pos.y - chunk.pos.y) - 1
+                    tile_z := int(player.pos.z - chunk.pos.z)
+                    if tile_x >= 0 && tile_y >= 0 && tile_z >= 0 && 
+                        tile_x < CHUNK_WIDTH && tile_y < CHUNK_HEIGHT && tile_z < CHUNK_LENGTH &&
+                        chunk.tiles[tile_y][tile_z][tile_x] == .Spring 
+                    {
+                        chunk.tiles[tile_y][tile_z][tile_x] = .ExtendedSpring
+                    }
+                }
             }
             if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
                 player.max_speed = MAX_SPEED
