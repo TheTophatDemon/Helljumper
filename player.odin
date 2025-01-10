@@ -48,18 +48,19 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
         }
         if !world.heaven do player.vel.x = -player.vel.x
     
-        trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonPressed(0, .RIGHT_FACE_DOWN))
+        trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonDown(0, .RIGHT_FACE_DOWN))
         stopped_trynna_jump := rl.IsKeyReleased(.SPACE) || rl.IsKeyReleased(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonReleased(0, .RIGHT_FACE_DOWN))
     
         moon_jump := false
         when ODIN_DEBUG {
             if rl.IsKeyDown(.TAB) do moon_jump = true
         }
-        if .Bottom in player.touch_flags || moon_jump {
-            if trynna_jump {
-                player.vel.y = JUMP_FORCE
-                rl.PlaySound(assets.Sounds[.Jump])
-            }
+        if (player.time_since_last_land < 0.3 || moon_jump) && trynna_jump {
+            player.time_since_last_land = 0.3
+            player.vel.y = JUMP_FORCE
+            rl.PlaySound(assets.Sounds[.Jump])
+        }
+        if .Bottom in player.touch_flags {
             if .Spring in player.touched_tiles {
                 player.vel.y = SPRING_JUMP_FORCE
                 rl.PlaySound(assets.Sounds[.Spring])

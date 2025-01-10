@@ -122,7 +122,7 @@ init_world :: proc(world: ^World, heaven: bool) {
 	load_next_chunk(world, 0)
     load_next_chunk(world, 1, 0)
     load_next_chunk(world, 2)
-    // if heaven do load_next_chunk(world, 2, 9); else do load_next_chunk(world, 2)
+    // if heaven do load_next_chunk(world, 2, 13); else do load_next_chunk(world, 2)
     // if !heaven do load_next_chunk(world, 2, 8); else do load_next_chunk(world, 2)
     
 
@@ -146,6 +146,7 @@ init_world :: proc(world: ^World, heaven: bool) {
         needs_outline = true,
         needs_drop_shadow = true,
         variant = .Player,
+        time_since_last_land = 100.0,
 	})
 
     if heaven {

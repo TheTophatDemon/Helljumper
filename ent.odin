@@ -34,6 +34,7 @@ Ent :: struct {
     touch_flags: bit_set[Touching; u8],
     touched_tiles: bit_set[TileType; u64],
     max_speed: f32,
+    time_since_last_land: f32,
     needs_outline, needs_drop_shadow: bool,
     variant: EntVariant,
 }
@@ -66,6 +67,9 @@ update_ent :: proc(ent: ^Ent, world: ^World, delta_time: f32) {
     }
     if .Bottom in ent.touch_flags {
         ent.vel.y = 0.0
+        ent.time_since_last_land = 0.0
+    } else {
+        ent.time_since_last_land += delta_time
     }
 }
 
