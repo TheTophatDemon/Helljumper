@@ -92,24 +92,30 @@ main :: proc() {
 	curr_song = assets.Songs[.TheLonging]
 	next_song = curr_song
 	song_volume := MUSIC_VOLUME
-	rl.PlayMusicStream(curr_song)
+	rl.PlayMusicStream(assets.Songs[.TheLonging])
+	rl.PlayMusicStream(assets.Songs[.IgnisMagnis])
 	rl.SetMusicVolume(curr_song, song_volume)
-	// when ODIN_DEBUG do rl.SetMasterVolume(0.5)
+	rl.SetMusicVolume(assets.Songs[.IgnisMagnis], 0.0)
 	
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 		if delta_time > 1.0 / TARGET_FPS do delta_time = 1.0 / TARGET_FPS // Prevents window moving from speeding up the game tick
 
 		rl.UpdateMusicStream(curr_song)
+		rl.UpdateMusicStream(next_song)
 		if next_song != curr_song {
+			if !rl.IsMusicStreamPlaying(next_song) do rl.ResumeMusicStream(next_song)
+			
 			song_volume -= delta_time
 			if song_volume < 0 {
 				song_volume = MUSIC_VOLUME
-				rl.StopMusicStream(curr_song)
+				rl.PauseMusicStream(curr_song)
 				curr_song = next_song
-				rl.PlayMusicStream(curr_song)
+				rl.SetMusicVolume(curr_song, MUSIC_VOLUME)
+			} else {
+				rl.SetMusicVolume(curr_song, song_volume)
+				rl.SetMusicVolume(next_song, MUSIC_VOLUME - song_volume)
 			}
-			rl.SetMusicVolume(curr_song, song_volume)
 		}
 
 		global_timer += delta_time
@@ -249,7 +255,8 @@ main :: proc() {
 			rl.DrawTextEx(assets.HudFont, 
 				"A and D or LEFT JOYSTICK - Strafe\n" + 
 				"SPACE, Z or XBOX A - Jump. Hold to jump higher\n" +
-				"Hold SHIFT or LEFT TRIGGER - Run\n\n" +
+				"Hold SHIFT or LEFT TRIGGER - Run\n" +
+				"Hold DOWN, S, or pull back LEFT JOYSTICK - Brake\n\n" + 
 				"Run as far as you can through Heaven and\n" +
 				"Stay out of Hell! Use the giant shallots \n" + 
 				"to return from there.",

@@ -25,6 +25,7 @@ SoundId :: enum {
     Lose,
     Lightning,
     Spring,
+    Brake,
 }
 
 SongId :: enum {
@@ -80,6 +81,7 @@ load :: proc() {
         .Lose = sound_from_bytes(#load("sounds/lose.wav")),
         .Lightning = sound_from_bytes(#load("sounds/lightning.wav")),
         .Spring = sound_from_bytes(#load("sounds/spring.wav")),
+        .Brake = sound_from_bytes(#load("sounds/brake.wav")),
     }
 
     song_from_bytes :: proc(bytes: []u8) -> rl.Music {

@@ -10,16 +10,28 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     REGULAR_SPEED :: 11.0
     MAX_SPEED :: 16.0
     FWD_ACCEL :: 15.0
+    BRAKE_ACCEL :: 35.0
     FRICTION :: 20.0
     SPRING_JUMP_FORCE :: JUMP_FORCE * 1.5
+
+    AnimIdx :: enum u16 {
+        Run,
+        Jump,
+        Fall,
+        Dash,
+        Dead,
+        Brake,
+    }
     
     update_ent(player, world, delta_time)
 
+    trynna_brake := (rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.S) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_Y) > 0.8))
+
     if world.game_lost {
-        assets.anim_player_change_anim(&player.anim_player, 4)
+        assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Dead)
         player.vel.xz = {}
     } else if world.heaven_transition {
-        assets.anim_player_change_anim(&player.anim_player, 1)
+        assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Jump)
         player.vel.y -= player.gravity * 2.0 * delta_time
         player.extents = {}
         for &ent in world.ents {
@@ -32,7 +44,12 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
             player.vel.z = 0.0
         } else {
             player.vel.z += FWD_ACCEL * delta_time
-            if player.vel.z > player.max_speed {
+            if .Bottom in player.touch_flags && trynna_brake {
+                player.vel.z = max(0.0, player.vel.z - BRAKE_ACCEL * delta_time)
+                if player.vel.z > player.max_speed / 2.0 && !rl.IsSoundPlaying(assets.Sounds[.Brake]) {
+                    rl.PlaySound(assets.Sounds[.Brake])
+                }
+            } else if player.vel.z > player.max_speed {
                 player.vel.z = max(0.0, player.vel.z - FRICTION * delta_time)
             }
         }
@@ -78,22 +95,25 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
                     }
                 }
             }
-            if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
+            if trynna_brake && player.vel.z > 0.1 {
+                player.max_speed = REGULAR_SPEED
+                assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Brake)
+            } else if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
                 player.max_speed = MAX_SPEED
-                assets.anim_player_change_anim(&player.anim_player, 3)
+                assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Dash)
             } else {
                 player.max_speed = REGULAR_SPEED
-                assets.anim_player_change_anim(&player.anim_player, 0)
+                assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Run)
             }
         } else {
             if player.vel.y > 0.0 {
                 if .Top in player.touch_flags {
                     player.vel.y = 0.0
                 } else {
-                    assets.anim_player_change_anim(&player.anim_player, 1)
+                    assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Jump)
                 }
             } else {
-                assets.anim_player_change_anim(&player.anim_player, 2)
+                assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Fall)
             }
             
             if player.vel.y > 5.0 && stopped_trynna_jump {
