@@ -10,6 +10,7 @@ import "core:os"
 import "core:encoding/endian"
 import "core:mem"
 import "core:time"
+import "core:reflect"
 
 import "assets"
 
@@ -36,6 +37,11 @@ Drawable :: union{
 	^Ent,
 	ChunkTile,
 	DropShadow,
+}
+
+Lang :: enum {
+	English,
+	Russian,
 }
 
 za_warudo: World
@@ -71,6 +77,9 @@ main :: proc() {
 	rl.InitAudioDevice()
 	assets.load()
 	defer assets.unload()
+	rl.SetWindowIcon(assets.Icon)
+
+	lang, _ := reflect.enum_from_name(Lang, #config(LANG, "English"))
 
 	game_screen := rl.LoadRenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT)
 	defer rl.UnloadRenderTexture(game_screen)
@@ -88,6 +97,7 @@ main :: proc() {
 	global_timer: f32
 	bg_color: rl.Color = HEAVEN_BG_COLOR
 	see_instructions: bool = true
+	sprint_reminder: f32 = -1.0
 
 	curr_song = assets.Songs[.TheLonging]
 	next_song = curr_song
@@ -151,6 +161,16 @@ main :: proc() {
 						init_world(&za_warudo, true)
 					}
 				}
+			} else {
+				new_record = false
+			}
+			if sprint_reminder > -1.0 {
+				sprint_reminder -= delta_time
+				if sprint_reminder < 0 {
+					sprint_reminder = 0.0
+				}
+			} else if za_warudo.about_to_go_off_screen {
+				sprint_reminder = 3.0
 			}
 		} else if pressing_any_button && global_timer > 0.5 {
 			see_instructions = false
@@ -252,40 +272,68 @@ main :: proc() {
 		
 		if see_instructions {
 			rl.DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, rl.Color{0, 0, 0, 128})
+
+			INSTRUCTIONS_EN :: 
+				`
+				A and D or LEFT JOYSTICK - Strafe
+				SPACE, Z or XBOX A - Jump. Hold to jump higher
+				Hold SHIFT, W, UP, or LEFT TRIGGER - Sprint
+				Hold DOWN, S, or pull back LEFT JOYSTICK - Brake
+
+				Run as far as you can through Heaven and
+				Stay out of Hell! Use the giant shallots
+				to return from there.
+				`
+			
+			INSTRUCTIONS_RU :: 
+				`
+				A и D и ЛЕВОЙ ДЖОЙСТИК - Двигаться горизонтально
+				SPACE, Z или XBOX A - Прыжок. Держать чтобы прыгнуть высше.
+				Держать SHIFT, W, UP, или ЛЕВОЙ ТРИГГЕР - Спринтовать
+				Держать DOWN, S, или отдергивать назад ЛЕВОЙ ДЖОЙСТИК - Тормоз
+
+				Бегите как можно дальше через рай и не оставайтесь в аду!
+				Пользуйтесь огромными шалотами чтобы вернуть оттуда.
+				`
+
 			rl.DrawTextEx(assets.HudFont, 
-				"A and D or LEFT JOYSTICK - Strafe\n" + 
-				"SPACE, Z or XBOX A - Jump. Hold to jump higher\n" +
-				"Hold SHIFT or LEFT TRIGGER - Run\n" +
-				"Hold DOWN, S, or pull back LEFT JOYSTICK - Brake\n\n" + 
-				"Run as far as you can through Heaven and\n" +
-				"Stay out of Hell! Use the giant shallots \n" + 
-				"to return from there.",
-				rl.Vector2{WINDOW_WIDTH * 0.3, WINDOW_HEIGHT * 0.3},
+				INSTRUCTIONS_EN if lang == .English else INSTRUCTIONS_RU,
+				rl.Vector2{WINDOW_WIDTH * 0.25 if lang == .English else WINDOW_WIDTH * 0.2, WINDOW_HEIGHT * 0.3},
 				24, 0.0,
 				rl.GREEN,
 			)
 
 			if math.mod(global_timer, 1.0) > 0.25 {
-				rl.DrawTextEx(assets.HudFont, "Press any button to begin!", rl.Vector2{WINDOW_WIDTH * 0.35, 3.0 * WINDOW_HEIGHT / 4.0}, 24, 1.0, rl.YELLOW)
+				prompt: cstring = "Press any button to begin!" if lang == .English else "Нажать любую кнопку чтобы начать!"
+				rl.DrawTextEx(assets.HudFont, prompt, rl.Vector2{
+					WINDOW_WIDTH * 0.35 if lang == .English else WINDOW_WIDTH * 0.3, 
+					3.0 * WINDOW_HEIGHT / 4.0,
+				}, 24, 1.0, rl.YELLOW)
 			}
 
 			rl.DrawTexture(assets.Gfx[.Logo], WINDOW_WIDTH - 320, WINDOW_HEIGHT - 320, rl.WHITE)
 		} else {
-			score_text := fmt.tprintf("TЯAVELEД: %04d БEST: %04d ШOЯST: %04d", int(score), int(high_score), int(low_score))
-			c_score_text := strings.clone_to_cstring(score_text, context.temp_allocator)
-			rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
-			rl.DrawTextEx(assets.HudFont, c_score_text, rl.Vector2{WINDOW_WIDTH * 0.25, 4}, 32, 0.0, rl.GREEN)
+			format_str: string = "TЯAVELEД: %04d БEST: %04d ШOЯST: %04d" if lang == .English else "РАССТОЯНИЕ: %04d ЛУЧШЕЕ: %04d ХУДШЕЕ: %04d"
+			score_text := fmt.ctprintf(format_str, int(score), int(high_score), int(low_score))
+			text_x: f32 = WINDOW_WIDTH * 0.25 if lang == .English else WINDOW_WIDTH * 0.2
+			rl.DrawTextEx(assets.HudFont, score_text, rl.Vector2{text_x, 6}, 32, 0.0, rl.Color{0, 0, 0, 128})
+			rl.DrawTextEx(assets.HudFont, score_text, rl.Vector2{text_x, 4}, 32, 0.0, rl.GREEN)
 	
 			if za_warudo.game_lost && !za_warudo.heaven {
-				LOSE_MSG :: "THOЦ HAST PEЯISHEД"
+				lose_msg: cstring = "THOЦ HAST PEЯISHEД" if lang == .English else "ВЫ ЖЕСТОКО ПОГЪБЛИ"
 				shadow_pos := rl.Vector2{WINDOW_WIDTH / 4, 3 * WINDOW_HEIGHT / 8 }
 				t := f32(rl.GetTime()) * 100.0
-				rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos - rl.Vector2{2.0 + math.cos(t * 10.0), 1.0 - math.sin(t / 2.0)}, 72, 4.0, rl.BLACK)
-				rl.DrawTextEx(assets.HudFont, LOSE_MSG, shadow_pos + rl.Vector2{2.0 + math.sin(t), 2.0 + math.cos(t)}, 72, 4.0, rl.RED)
+				rl.DrawTextEx(assets.HudFont, lose_msg, shadow_pos - rl.Vector2{2.0 + math.cos(t * 10.0), 1.0 - math.sin(t / 2.0)}, 72, 4.0, rl.BLACK)
+				rl.DrawTextEx(assets.HudFont, lose_msg, shadow_pos + rl.Vector2{2.0 + math.sin(t), 2.0 + math.cos(t)}, 72, 4.0, rl.RED)
 				if new_record && (int(t) % 100) > 25 { 
-					RECORD_MSG :: "ШITH A NEШ ЯECOЯД!"
-					rl.DrawTextEx(assets.HudFont, RECORD_MSG, shadow_pos + rl.Vector2{192.0, 82.0}, 32, 1.0, rl.YELLOW)
+					record_msg: cstring = "ШITH A NEШ ЯECOЯД!" if lang == .English else "СЪ НОВЫМЪ РЕКОРДОМЪ"
+					rl.DrawTextEx(assets.HudFont, record_msg, shadow_pos + rl.Vector2{192.0, 82.0}, 32, 1.0, rl.YELLOW)
 				}
+			} else if sprint_reminder > 0.0 {
+				sprint_msg: cstring = "SPRINT - HOLD SHIFT, W, UP, OR LEFT TRIGGER" if lang == .English else "СПРИНТИРУЙТЕ! ДЕРЖАТЬ SHIFT, W, UP, ИЛИ Л. ТРИГГЕР"
+				pos := rl.Vector2{WINDOW_WIDTH * 0.25 if lang == .English else WINDOW_WIDTH * 0.2, WINDOW_HEIGHT * 0.45}
+				rl.DrawTextEx(assets.HudFont, sprint_msg, pos + rl.Vector2{0.0, 2.0}, 32, 0, rl.BLACK)
+				rl.DrawTextEx(assets.HudFont, sprint_msg, pos, 32, 0, rl.RED)
 			}
 		}
 

@@ -67,7 +67,11 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
     
         trynna_jump := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonDown(0, .RIGHT_FACE_DOWN))
         stopped_trynna_jump := rl.IsKeyReleased(.SPACE) || rl.IsKeyReleased(.Z) || (rl.IsGamepadAvailable(0) && rl.IsGamepadButtonReleased(0, .RIGHT_FACE_DOWN))
-    
+
+        trynna_sprint := rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || 
+            rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) || 
+            (rl.IsGamepadAvailable(0) && (rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0 || rl.GetGamepadAxisMovement(0, .LEFT_Y) < -0.5))
+
         moon_jump := false
         when ODIN_DEBUG {
             if rl.IsKeyDown(.TAB) do moon_jump = true
@@ -98,7 +102,7 @@ update_player :: proc(player: ^Ent, world: ^World, delta_time: f32) {
             if trynna_brake && player.vel.z > 0.1 {
                 player.max_speed = REGULAR_SPEED
                 assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Brake)
-            } else if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) || (rl.IsGamepadAvailable(0) && rl.GetGamepadAxisMovement(0, .LEFT_TRIGGER) > 0.0) {
+            } else if trynna_sprint {
                 player.max_speed = MAX_SPEED
                 assets.anim_player_change_anim(&player.anim_player, cast(u16)AnimIdx.Dash)
             } else {

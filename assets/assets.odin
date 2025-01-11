@@ -44,6 +44,7 @@ Songs: [SongId]rl.Music
 Anims: [GfxId]AnimSet
 HeavenChunks, HellChunks: [dynamic]ChunkInfo
 HudFont: rl.Font
+Icon: rl.Image
 
 asset_arena: mem.Arena
 asset_memory: [1_500_000]u8
@@ -153,6 +154,9 @@ load :: proc() {
     }
 
     HudFont = rl.LoadFontFromMemory(".ttf", &font_bytes[0], cast(i32)len(font_bytes), 16, &codepoints[0], cast(i32)len(codepoints))
+
+    icon_bytes := #load("gfx/icon.png")
+    Icon = rl.LoadImageFromMemory(".png", &icon_bytes[0], cast(i32)len(icon_bytes))
 }
 
 unload :: proc() {
@@ -169,6 +173,7 @@ unload :: proc() {
     }
 
     rl.UnloadFont(HudFont)
+    rl.UnloadImage(Icon)
 
     mem.arena_free_all(&asset_arena)
 }

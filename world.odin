@@ -19,6 +19,7 @@ CHUNK_COUNT :: 3 // Number of chunks loaded at any one time.
 TILE_SPACING_HORZ :: 16
 TILE_SPACING_VERT :: 8
 KILL_PLANE_OFFSET :: 20.0
+SPRINT_REMINDER_OFFSET :: 10.0
 TILE_MOVE_INTERVAL :: 0.5 // Number of seconds it takes a moving tile to go 1 unit
 
 TileType :: enum u8 {
@@ -102,6 +103,7 @@ World :: struct {
     distance_traveled: f32, // Map units moved since this realm has been entered 
     total_distance_traveled: f32, // Map units moved since beginning of the player's life
     game_lost, heaven_transition: bool,
+    about_to_go_off_screen: bool, // True when the player is about to slow down behind the screen.
     tile_timer: f32,
 }
 
@@ -292,6 +294,10 @@ update_world :: proc(world: ^World, delta_time: f32, score: f32) -> (new_score: 
         } else {
             if player_ent.pos.z < world.distance_traveled - KILL_PLANE_OFFSET {
                 world_lose_game(world)
+            } else if player_ent.pos.z < world.distance_traveled - SPRINT_REMINDER_OFFSET {
+                world.about_to_go_off_screen = true
+            } else {
+                world.about_to_go_off_screen = false
             }
         }
 
@@ -390,7 +396,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
         switch name {
         case "shallot":
             // Spawn shallot
-            if world.distance_traveled > CHUNK_LENGTH * 2 && should_spawn(world.total_distance_traveled, 0.7, 0.25) {
+            if world.distance_traveled > CHUNK_LENGTH * 2 && should_spawn(world.total_distance_traveled, 0.8, 0.5) {
                 append(&world.ents, Ent{
                     pos = spawn_pos,
                     extents = rl.Vector3{0.5, 64.0, 0.5},
