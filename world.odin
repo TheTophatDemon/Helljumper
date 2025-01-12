@@ -405,7 +405,7 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
         switch name {
         case "shallot":
             // Spawn shallot
-            if world.distance_traveled > CHUNK_LENGTH * 2 && should_spawn(world.total_distance_traveled, 0.8, 0.5) {
+            if world.distance_traveled > CHUNK_LENGTH * 2 && should_spawn(world.total_distance_traveled, 0.7, 0.3) {
                 append(&world.ents, Ent{
                     pos = spawn_pos,
                     extents = rl.Vector3{0.5, 64.0, 0.5},
