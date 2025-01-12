@@ -298,8 +298,8 @@ main :: proc() {
 
 			rl.DrawTextEx(assets.HudFont, 
 				INSTRUCTIONS_EN if lang == .English else INSTRUCTIONS_RU,
-				rl.Vector2{WINDOW_WIDTH * 0.25 if lang == .English else WINDOW_WIDTH * 0.2, WINDOW_HEIGHT * 0.3},
-				24, 0.0,
+				rl.Vector2{WINDOW_WIDTH * 0.25 if lang == .English else WINDOW_WIDTH * 0.15, WINDOW_HEIGHT * 0.3},
+				24, 1.0,
 				rl.GREEN,
 			)
 
