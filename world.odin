@@ -43,23 +43,23 @@ TileType :: enum u8 {
 }
 
 TileRects := [TileType]rl.Rectangle{
-    .Empty      = {},
-    .Solid      = {0, 0, 32, 32},
-    .Cloud      = {32, 0, 32, 32},
-    .Pillar     = {64, 0, 32, 32},
-    .Bridge     = {96, 0, 32, 32},
-    .Spike      = {0, 32, 32, 32},
-    .HellBridge = {32, 32, 32, 32},
-    .Rock       = {64, 32, 32, 32},
-    .LavaRock   = {96, 32, 32, 32},
-    .ArrowN     = {0, 64, 32, 32},
-    .ArrowE     = {32, 64, 32, 32},
-    .ArrowS     = {64, 64, 32, 32},
-    .ArrowW     = {96, 64, 32, 32},
-    .Spring     = {0, 96, 32, 32},
+    .Empty          = {},
+    .Solid          = {0, 0, 32, 32},
+    .Cloud          = {32, 0, 32, 32},
+    .Pillar         = {64, 0, 32, 32},
+    .Bridge         = {96, 0, 32, 32},
+    .Spike          = {0, 32, 32, 32},
+    .HellBridge     = {32, 32, 32, 32},
+    .Rock           = {64, 32, 32, 32},
+    .LavaRock       = {96, 32, 32, 32},
+    .ArrowN         = {0, 64, 32, 32},
+    .ArrowE         = {32, 64, 32, 32},
+    .ArrowS         = {64, 64, 32, 32},
+    .ArrowW         = {96, 64, 32, 32},
+    .Spring         = {0, 96, 32, 32},
     .ExtendedSpring = {32, 96, 32, 32},
-    .Marble = {64, 96, 32, 32},
-    .Eye = {96, 96, 32, 32},
+    .Marble         = {64, 96, 32, 32},
+    .Eye            = {96, 96, 32, 32},
 }
 
 // Specifies from which directions a collision can pass through a tile type.
@@ -88,6 +88,7 @@ TileTransparent := #partial [TileType]bool {
 Chunk :: struct {
     tiles: [CHUNK_HEIGHT][CHUNK_LENGTH][CHUNK_WIDTH]TileType,
     pos: rl.Vector3, // Bottom back left corner
+    info: ^assets.ChunkInfo, // From the assets.HeavenChunk or assets.HellChunk arrays. 
 }
 
 ChunkTile :: struct {
@@ -339,22 +340,30 @@ load_next_chunk :: proc(world: ^World, chunk_idx: int, asset_idx: int = -1) {
 
     chunk_arr := assets.HeavenChunks if world.heaven else assets.HellChunks
 
-    te3_map: assets.Te3Map
+    chunk_info: ^assets.ChunkInfo
     if asset_idx >= 0 {
-        te3_map = chunk_arr[asset_idx].te3_map
+        chunk_info = &chunk_arr[asset_idx]
     } else {
         pickable_indices := make([dynamic]int, 0, len(chunk_arr))
         defer delete(pickable_indices)
 
+        chunk_choosing:
         for &chunk_info, idx in chunk_arr {
             if world.total_distance_traveled < chunk_info.distance_threshold do continue
+            // Don't pick a chunk that we just saw
+            for &other_chunk in world.chunks {
+                if other_chunk.info == &chunk_info do continue chunk_choosing
+            }
             append(&pickable_indices, idx)
         }
 
-        te3_map = chunk_arr[rand.choice(pickable_indices[:])].te3_map
+        chunk_info = &chunk_arr[rand.choice(pickable_indices[:])]
     }
 
-    te3_tiles := assets.load_tile_grid_from_te3_map(&te3_map)
+    world.chunks[chunk_idx].info = chunk_info
+
+    te3_map := &chunk_info.te3_map
+    te3_tiles := assets.load_tile_grid_from_te3_map(te3_map)
     defer delete(te3_tiles)
 
     for tile, t in te3_tiles {
